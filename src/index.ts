@@ -1,5 +1,6 @@
 interface Env {
   DB: D1Database;
+  ASSETS: Fetcher;
 }
 
 interface AssetRow {
@@ -9,20 +10,20 @@ interface AssetRow {
   Role: string;
 }
 
-const headers = {
+const jsonHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-export const onRequest: PagesFunction<Env> = async (context) => {
-  if (context.request.method === "OPTIONS") {
-    return new Response(null, { headers });
+async function handleAssetStats(request: Request, env: Env): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { headers: jsonHeaders });
   }
 
   try {
-    const { results } = await context.env.DB.prepare(
+    const { results } = await env.DB.prepare(
       "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
     ).all<AssetRow>();
 
@@ -63,14 +64,26 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         usd_rate: usdToCny,
         stats,
       }),
-      { headers }
+      { headers: jsonHeaders }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
 
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers,
+      headers: jsonHeaders,
     });
   }
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/assets-stats") {
+      return handleAssetStats(request, env);
+    }
+
+    return env.ASSETS.fetch(request);
+  },
 };
