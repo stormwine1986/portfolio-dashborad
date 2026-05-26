@@ -12,6 +12,11 @@ interface AssetRow {
   Role: string;
 }
 
+interface ChartStat {
+  label: string;
+  value: number;
+}
+
 const jsonHeaders = {
   "Content-Type": "application/json",
 };
@@ -78,6 +83,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     }
 
     const roleStats: Record<string, number> = {};
+    const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
 
     for (const row of results ?? []) {
@@ -85,19 +91,27 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       const valueInCNY = row.symbol === "USD" ? originalValue * usdToCny : originalValue;
 
       roleStats[row.Role] = (roleStats[row.Role] ?? 0) + valueInCNY;
+      symbolStats[row.symbol] = (symbolStats[row.symbol] ?? 0) + valueInCNY;
       totalAssetCNY += valueInCNY;
     }
 
-    const stats = Object.entries(roleStats).map(([role, value]) => ({
-      role,
-      value: Number(value.toFixed(2)),
-    }));
+    const toSortedStats = (groupedStats: Record<string, number>): ChartStat[] =>
+      Object.entries(groupedStats)
+        .map(([label, value]) => ({
+          label,
+          value: Number(value.toFixed(2)),
+        }))
+        .sort((a, b) => b.value - a.value);
+
+    const stats_by_role = toSortedStats(roleStats);
+    const stats_by_symbol = toSortedStats(symbolStats);
 
     return new Response(
       JSON.stringify({
         total_cny: Number(totalAssetCNY.toFixed(2)),
         usd_rate: usdToCny,
-        stats,
+        stats_by_role,
+        stats_by_symbol,
       }),
       { headers: jsonHeaders }
     );
