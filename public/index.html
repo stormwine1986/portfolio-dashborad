@@ -29,6 +29,37 @@
             font-weight: bold;
             color: #2c3e50;
             margin: 10px 0 25px 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .copy-button {
+            border: 1px solid #d0d7de;
+            background: #fff;
+            color: #4b5563;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .copy-button:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+        .copy-button:active {
+            transform: translateY(1px);
+        }
+        .copy-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .copy-button.copied {
+            color: #0f766e;
+            border-color: #5eead4;
+            background: #ecfeff;
         }
         .total-label {
             color: #7f8c8d;
@@ -47,7 +78,10 @@
 
 <div class="dashboard-card">
     <div class="total-label">总资产 (CNY 计价)</div>
-    <div class="total-amount" id="totalAmount">¥ 0.00</div>
+    <div class="total-amount">
+        <span id="totalAmount">¥ 0.00</span>
+        <button type="button" class="copy-button" id="copyTotalAmount">复制数字</button>
+    </div>
     
     <div class="chart-container">
         <canvas id="rolePieChart"></canvas>
@@ -57,6 +91,26 @@
 <script>
     // 替换为你的 Worker API 真实地址
     const API_URL = '/api/assets-stats'; 
+    const totalAmountElement = document.getElementById('totalAmount');
+    const copyButton = document.getElementById('copyTotalAmount');
+    let totalAmountRawValue = '0.00';
+
+    function setCopyButtonState(text, copied = false) {
+        copyButton.innerText = text;
+        copyButton.classList.toggle('copied', copied);
+    }
+
+    async function copyTotalAmount() {
+        try {
+            await navigator.clipboard.writeText(totalAmountRawValue);
+            setCopyButtonState('已复制', true);
+        } catch (error) {
+            console.error('复制总资产失败:', error);
+            setCopyButtonState('复制失败');
+        }
+
+        window.setTimeout(() => setCopyButtonState('复制数字'), 1500);
+    }
 
     async function fetchAndRenderChart() {
         try {
@@ -64,7 +118,9 @@
             const data = await response.json();
 
             // 1. 更新总资产文本
-            document.getElementById('totalAmount').innerText = '¥ ' + data.total_cny.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+            totalAmountRawValue = Number(data.total_cny).toFixed(2);
+            totalAmountElement.innerText = '¥ ' + Number(data.total_cny).toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+            copyButton.disabled = false;
 
             // 2. 解析 Chart.js 所需的数据
             const labels = data.stats.map(item => item.role);
@@ -113,11 +169,13 @@
 
         } catch (error) {
             console.error("加载资产看板数据失败:", error);
-            document.getElementById('totalAmount').innerText = "数据加载失败";
+            totalAmountElement.innerText = "数据加载失败";
+            copyButton.disabled = true;
         }
     }
 
     // 页面加载完成后执行
+    copyButton.addEventListener('click', copyTotalAmount);
     window.onload = fetchAndRenderChart;
 </script>
 </body>
