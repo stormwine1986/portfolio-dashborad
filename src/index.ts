@@ -1,6 +1,8 @@
 interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  DASHBOARD_USERNAME?: string;
+  DASHBOARD_PASSWORD?: string;
 }
 
 interface AssetRow {
@@ -12,16 +14,49 @@ interface AssetRow {
 
 const jsonHeaders = {
   "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
 };
 
-async function handleAssetStats(request: Request, env: Env): Promise<Response> {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { headers: jsonHeaders });
+function unauthorizedResponse() {
+  return new Response("Unauthorized", {
+    status: 401,
+    headers: {
+      "WWW-Authenticate": 'Basic realm="Private Dashboard", charset="UTF-8"',
+    },
+  });
+}
+
+function isAuthorized(request: Request, env: Env): boolean {
+  const expectedUsername = env.DASHBOARD_USERNAME;
+  const expectedPassword = env.DASHBOARD_PASSWORD;
+
+  if (!expectedUsername || !expectedPassword) {
+    return false;
   }
 
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Basic ")) {
+    return false;
+  }
+
+  try {
+    const encoded = authHeader.slice("Basic ".length);
+    const decoded = atob(encoded);
+    const separatorIndex = decoded.indexOf(":");
+
+    if (separatorIndex === -1) {
+      return false;
+    }
+
+    const username = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+
+    return username === expectedUsername && password === expectedPassword;
+  } catch {
+    return false;
+  }
+}
+
+async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
     const { results } = await env.DB.prepare(
       "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
@@ -78,6 +113,10 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (!isAuthorized(request, env)) {
+      return unauthorizedResponse();
+    }
+
     const url = new URL(request.url);
 
     if (url.pathname === "/api/assets-stats") {
