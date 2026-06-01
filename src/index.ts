@@ -19,38 +19,62 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
-async function fetchBtcPriceCny(): Promise<number | undefined> {
-  try {
-    const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cny",
-      {
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
+async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "portfolio-dashboard/1.0",
+    },
+  });
 
-    if (!response.ok) {
-      throw new Error(`CoinGecko responded with ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      bitcoin?: { cny?: number };
-    };
-
-    return typeof data.bitcoin?.cny === "number" ? data.bitcoin.cny : undefined;
-  } catch (error) {
-    console.error("Failed to fetch BTC/CNY price, using database price.", error);
-    return undefined;
+  if (!response.ok) {
+    throw new Error(`${url} responded with ${response.status}`);
   }
+
+  return response.json() as Promise<T>;
+}
+
+async function fetchBtcPriceUsd(): Promise<number | undefined> {
+  const priceFetchers = [
+    async () => {
+      const data = await fetchJson<{ data?: { amount?: string } }>(
+        "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+      );
+      const price = Number(data.data?.amount);
+
+      return Number.isFinite(price) ? price : undefined;
+    },
+    async () => {
+      const data = await fetchJson<{ price?: string }>(
+        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+      );
+      const price = Number(data.price);
+
+      return Number.isFinite(price) ? price : undefined;
+    },
+  ];
+
+  for (const fetchPrice of priceFetchers) {
+    try {
+      const price = await fetchPrice();
+
+      if (price !== undefined) {
+        return price;
+      }
+    } catch (error) {
+      console.warn("Failed to fetch BTC/USD price from one source.", error);
+    }
+  }
+
+  console.error("Failed to fetch BTC/USD price, using database price.");
+  return undefined;
 }
 
 async function fetchUsdToCnyRate(): Promise<number> {
   try {
-    const fxResponse = await fetch("https://open.er-api.com/v6/latest/USD");
-    const fxData = (await fxResponse.json()) as {
+    const fxData = await fetchJson<{
       rates?: { CNY?: number };
-    };
+    }>("https://open.er-api.com/v6/latest/USD");
 
     if (typeof fxData.rates?.CNY === "number") {
       return fxData.rates.CNY;
@@ -70,10 +94,12 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
     const hasBtcAssets = (results ?? []).some((row) => row.symbol === "BTC");
 
-    const [btcPriceCny, usdToCny] = await Promise.all([
-      hasBtcAssets ? fetchBtcPriceCny() : Promise.resolve(undefined),
+    const [btcPriceUsd, usdToCny] = await Promise.all([
+      hasBtcAssets ? fetchBtcPriceUsd() : Promise.resolve(undefined),
       fetchUsdToCnyRate(),
     ]);
+    const btcPriceCny =
+      btcPriceUsd === undefined ? undefined : btcPriceUsd * usdToCny;
 
     const roleStats: Record<string, number> = {};
     const symbolStats: Record<string, number> = {};
