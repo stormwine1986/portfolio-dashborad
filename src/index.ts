@@ -19,34 +19,74 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
+async function fetchBtcPriceCny(): Promise<number | undefined> {
+  try {
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cny",
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko responded with ${response.status}`);
+    }
+
+    const data = (await response.json()) as {
+      bitcoin?: { cny?: number };
+    };
+
+    return typeof data.bitcoin?.cny === "number" ? data.bitcoin.cny : undefined;
+  } catch (error) {
+    console.error("Failed to fetch BTC/CNY price, using database price.", error);
+    return undefined;
+  }
+}
+
+async function fetchUsdToCnyRate(): Promise<number> {
+  try {
+    const fxResponse = await fetch("https://open.er-api.com/v6/latest/USD");
+    const fxData = (await fxResponse.json()) as {
+      rates?: { CNY?: number };
+    };
+
+    if (typeof fxData.rates?.CNY === "number") {
+      return fxData.rates.CNY;
+    }
+  } catch (error) {
+    console.error("Failed to fetch USD/CNY rate, using fallback.", error);
+  }
+
+  return 6.8;
+}
+
 async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
     const { results } = await env.DB.prepare(
       "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
     ).all<AssetRow>();
 
-    let usdToCny = 6.8;
+    const hasBtcAssets = (results ?? []).some((row) => row.symbol === "BTC");
 
-    try {
-      const fxResponse = await fetch("https://open.er-api.com/v6/latest/USD");
-      const fxData = (await fxResponse.json()) as {
-        rates?: { CNY?: number };
-      };
-
-      if (typeof fxData.rates?.CNY === "number") {
-        usdToCny = fxData.rates.CNY;
-      }
-    } catch (error) {
-      console.error("Failed to fetch USD/CNY rate, using fallback.", error);
-    }
+    const [btcPriceCny, usdToCny] = await Promise.all([
+      hasBtcAssets ? fetchBtcPriceCny() : Promise.resolve(undefined),
+      fetchUsdToCnyRate(),
+    ]);
 
     const roleStats: Record<string, number> = {};
     const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
 
     for (const row of results ?? []) {
-      const originalValue = row.shares * row.market_price;
-      const valueInCNY = row.symbol === "USD" ? originalValue * usdToCny : originalValue;
+      const unitPrice =
+        row.symbol === "BTC" && btcPriceCny !== undefined
+          ? btcPriceCny
+          : row.market_price;
+      const originalValue = row.shares * unitPrice;
+      const valueInCNY =
+        row.symbol === "USD" ? originalValue * usdToCny : originalValue;
 
       roleStats[row.Role] = (roleStats[row.Role] ?? 0) + valueInCNY;
       symbolStats[row.symbol] = (symbolStats[row.symbol] ?? 0) + valueInCNY;
@@ -68,6 +108,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       JSON.stringify({
         total_cny: Number(totalAssetCNY.toFixed(2)),
         usd_rate: usdToCny,
+        btc_price_cny: btcPriceCny,
         stats_by_role,
         stats_by_symbol,
       }),
