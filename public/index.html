@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>资产配置看板</title>
+    <title>&#x8D44;&#x4EA7;&#x914D;&#x7F6E;&#x770B;&#x677F;</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -119,6 +119,40 @@
             width: min(100%, 360px);
         }
 
+        .chart-table {
+            margin-top: 18px;
+            overflow-x: auto;
+        }
+
+        .stat-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            color: var(--text-main);
+        }
+
+        .stat-table th,
+        .stat-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .stat-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            background: #f8fafc;
+        }
+
+        .stat-table tbody tr:hover {
+            background: #f8fbff;
+        }
+
+        .stat-table td.is-number {
+            text-align: right;
+        }
+
         @media (max-width: 768px) {
             .dashboard-card {
                 padding: 24px 18px;
@@ -137,26 +171,28 @@
 <body>
 <div class="dashboard-card">
     <div class="header">
-        <div class="total-label">总资产 (CNY 计价)</div>
+        <div class="total-label">&#x603B;&#x8D44;&#x4EA7; (CNY &#x8BA1;&#x4EF7;)</div>
         <div class="total-amount">
-            <span id="totalAmount">¥ 0.00</span>
-            <button type="button" class="copy-button" id="copyTotalAmount" disabled>复制数字</button>
+            <span id="totalAmount">CNY 0.00</span>
+            <button type="button" class="copy-button" id="copyTotalAmount" disabled>&#x590D;&#x5236;&#x91D1;&#x989D;</button>
         </div>
     </div>
 
     <div class="charts-grid">
         <section class="chart-panel">
-            <h2 class="chart-title">按角色分布</h2>
+            <h2 class="chart-title">&#x6309;&#x89D2;&#x8272;&#x5206;&#x5E03;</h2>
             <div class="chart-container">
                 <canvas id="rolePieChart"></canvas>
             </div>
+            <div class="chart-table" id="roleStatsTable"></div>
         </section>
 
         <section class="chart-panel">
-            <h2 class="chart-title">按 Symbol 分布</h2>
+            <h2 class="chart-title">&#x6309;&#x5E01;&#x79CD;&#x5206;&#x5E03;</h2>
             <div class="chart-container">
                 <canvas id="symbolPieChart"></canvas>
             </div>
+            <div class="chart-table" id="symbolStatsTable"></div>
         </section>
     </div>
 </div>
@@ -185,16 +221,77 @@
         copyButton.classList.toggle("copied", Boolean(copied));
     }
 
+    function formatCny(value) {
+        return "CNY " + Number(value).toLocaleString("zh-CN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
     async function copyTotalAmount() {
         try {
             await navigator.clipboard.writeText(totalAmountRawValue);
-            setCopyButtonState("已复制", true);
+            setCopyButtonState("\u5df2\u590d\u5236", true);
         } catch (error) {
-            console.error("复制总资产失败", error);
-            setCopyButtonState("复制失败", false);
+            console.error("Failed to copy total assets", error);
+            setCopyButtonState("\u590d\u5236\u5931\u8d25", false);
         }
 
-        window.setTimeout(() => setCopyButtonState("复制数字", false), 1500);
+        window.setTimeout(() => setCopyButtonState("\u590d\u5236\u91d1\u989d", false), 1500);
+    }
+
+    function renderStatTable(tableId, stats, firstColumnLabel) {
+        const container = document.getElementById(tableId);
+        const total = stats.reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+        if (!container) {
+            return;
+        }
+
+        if (!stats.length) {
+            container.innerHTML = `
+                <table class="stat-table">
+                    <thead>
+                        <tr>
+                            <th>${firstColumnLabel}</th>
+                            <th>\u6570\u989d (CNY)</th>
+                            <th>\u5360\u6bd4</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3">\u6682\u65e0\u6570\u636e</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="stat-table">
+                <thead>
+                    <tr>
+                        <th>${firstColumnLabel}</th>
+                        <th>\u6570\u989d (CNY)</th>
+                        <th>\u5360\u6bd4</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${stats.map((item) => {
+                        const value = Number(item.value || 0);
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
+                        return `
+                            <tr>
+                                <td>${item.label}</td>
+                                <td class="is-number">${formatCny(value)}</td>
+                                <td class="is-number">${percentage}%</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        `;
     }
 
     function renderPieChart(canvasId, stats) {
@@ -230,7 +327,7 @@
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
                                 const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
-                                return `${label}: ¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${percentage}%)`;
+                                return `${label}: ${formatCny(value)} (${percentage}%)`;
                             }
                         }
                     }
@@ -245,17 +342,16 @@
             const data = await response.json();
 
             totalAmountRawValue = Number(data.total_cny).toFixed(2);
-            totalAmountElement.innerText = "¥ " + Number(data.total_cny).toLocaleString("zh-CN", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            totalAmountElement.innerText = formatCny(data.total_cny);
             copyButton.disabled = false;
 
             renderPieChart("rolePieChart", data.stats_by_role || []);
             renderPieChart("symbolPieChart", data.stats_by_symbol || []);
+            renderStatTable("roleStatsTable", data.stats_by_role || [], "\u89d2\u8272\u540d");
+            renderStatTable("symbolStatsTable", data.stats_by_symbol || [], "\u5e01\u79cd");
         } catch (error) {
-            console.error("加载资产看板数据失败", error);
-            totalAmountElement.innerText = "数据加载失败";
+            console.error("Failed to load dashboard data", error);
+            totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
             copyButton.disabled = true;
         }
     }
