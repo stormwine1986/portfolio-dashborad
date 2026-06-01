@@ -61,35 +61,46 @@
             flex-wrap: wrap;
         }
 
-        .copy-button {
+        .icon-button {
             border: 1px solid var(--border);
             background: #fff;
             color: #4b5563;
             border-radius: 999px;
-            padding: 6px 12px;
-            font-size: 0.9rem;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
-        .copy-button:hover {
+        .icon-button:hover {
             background: #f3f4f6;
             border-color: #9ca3af;
         }
 
-        .copy-button:active {
+        .icon-button:active {
             transform: translateY(1px);
         }
 
-        .copy-button:disabled {
+        .icon-button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
 
-        .copy-button.copied {
+        .icon-button.copied,
+        .icon-button.is-active {
             color: var(--accent);
             border-color: #5eead4;
             background: var(--accent-soft);
+        }
+
+        .icon-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
         }
 
         .charts-grid {
@@ -153,6 +164,11 @@
             text-align: right;
         }
 
+        .amount-hidden {
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+
         @media (max-width: 768px) {
             .dashboard-card {
                 padding: 24px 18px;
@@ -174,7 +190,8 @@
         <div class="total-label">&#x603B;&#x8D44;&#x4EA7; (CNY &#x8BA1;&#x4EF7;)</div>
         <div class="total-amount">
             <span id="totalAmount">CNY 0.00</span>
-            <button type="button" class="copy-button" id="copyTotalAmount" disabled>&#x590D;&#x5236;&#x91D1;&#x989D;</button>
+            <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
+            <button type="button" class="icon-button" id="toggleTableAmounts" aria-label="显示表格金额" title="显示表格金额"></button>
         </div>
     </div>
 
@@ -201,6 +218,34 @@
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
     const copyButton = document.getElementById("copyTotalAmount");
+    const toggleTableAmountsButton = document.getElementById("toggleTableAmounts");
+    const icons = {
+        copy: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2" stroke-width="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round"></path>
+            </svg>
+        `,
+        check: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `,
+        eye: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke-width="2" stroke-linejoin="round"></path>
+                <circle cx="12" cy="12" r="3" stroke-width="2"></circle>
+            </svg>
+        `,
+        eyeOff: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m3 3 18 18" stroke-width="2" stroke-linecap="round"></path>
+                <path d="M10.6 10.6a3 3 0 0 0 3.8 3.8" stroke-width="2" stroke-linecap="round"></path>
+                <path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-3.1 4.1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.4-.9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `
+    };
     const chartPalette = [
         "#3498db",
         "#2ecc71",
@@ -215,10 +260,23 @@
     ];
 
     let totalAmountRawValue = "0.00";
+    let tableAmountsVisible = false;
+    let latestRoleStats = [];
+    let latestSymbolStats = [];
 
-    function setCopyButtonState(text, copied) {
-        copyButton.innerText = text;
+    function setCopyButtonState(label, copied) {
+        copyButton.innerHTML = copied ? icons.check : icons.copy;
+        copyButton.setAttribute("aria-label", label);
+        copyButton.setAttribute("title", label);
         copyButton.classList.toggle("copied", Boolean(copied));
+    }
+
+    function setToggleTableAmountsState() {
+        const label = tableAmountsVisible ? "\u9690\u85cf\u8868\u683c\u91d1\u989d" : "\u663e\u793a\u8868\u683c\u91d1\u989d";
+        toggleTableAmountsButton.innerHTML = tableAmountsVisible ? icons.eye : icons.eyeOff;
+        toggleTableAmountsButton.setAttribute("aria-label", label);
+        toggleTableAmountsButton.setAttribute("title", label);
+        toggleTableAmountsButton.classList.toggle("is-active", tableAmountsVisible);
     }
 
     function formatCny(value) {
@@ -238,6 +296,14 @@
         }
 
         window.setTimeout(() => setCopyButtonState("\u590d\u5236\u91d1\u989d", false), 1500);
+    }
+
+    function renderAmount(value) {
+        if (tableAmountsVisible) {
+            return formatCny(value);
+        }
+
+        return `<span class="amount-hidden" aria-label="\u91d1\u989d\u5df2\u9690\u85cf">\u2022\u2022\u2022\u2022\u2022\u2022</span>`;
     }
 
     function renderStatTable(tableId, stats, firstColumnLabel) {
@@ -284,7 +350,7 @@
                         return `
                             <tr>
                                 <td>${item.label}</td>
-                                <td class="is-number">${formatCny(value)}</td>
+                                <td class="is-number">${renderAmount(value)}</td>
                                 <td class="is-number">${percentage}%</td>
                             </tr>
                         `;
@@ -342,13 +408,15 @@
             const data = await response.json();
 
             totalAmountRawValue = Number(data.total_cny).toFixed(2);
+            latestRoleStats = data.stats_by_role || [];
+            latestSymbolStats = data.stats_by_symbol || [];
             totalAmountElement.innerText = formatCny(data.total_cny);
             copyButton.disabled = false;
 
-            renderPieChart("rolePieChart", data.stats_by_role || []);
-            renderPieChart("symbolPieChart", data.stats_by_symbol || []);
-            renderStatTable("roleStatsTable", data.stats_by_role || [], "\u89d2\u8272\u540d");
-            renderStatTable("symbolStatsTable", data.stats_by_symbol || [], "\u5e01\u79cd");
+            renderPieChart("rolePieChart", latestRoleStats);
+            renderPieChart("symbolPieChart", latestSymbolStats);
+            renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
+            renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
@@ -356,7 +424,17 @@
         }
     }
 
+    function toggleTableAmounts() {
+        tableAmountsVisible = !tableAmountsVisible;
+        setToggleTableAmountsState();
+        renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
+        renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
+    }
+
+    setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
+    setToggleTableAmountsState();
     copyButton.addEventListener("click", copyTotalAmount);
+    toggleTableAmountsButton.addEventListener("click", toggleTableAmounts);
     window.addEventListener("load", fetchAndRenderChart);
 </script>
 </body>
