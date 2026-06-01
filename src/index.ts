@@ -1,6 +1,6 @@
 interface Env {
   DB: D1Database;
-  ASSETS: Fetcher;
+  ASSETS?: Fetcher;
 }
 
 interface AssetRow {
@@ -132,6 +132,10 @@ export default {
       return handleAssetStats(request, env);
     }
 
-    return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
+    return new Response("Not Found", { status: 404 });
   },
 };
