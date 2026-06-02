@@ -35,7 +35,7 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             padding: 30px;
             width: 100%;
-            max-width: 1180px;
+            max-width: 1480px;
         }
 
         .header {
@@ -105,7 +105,7 @@
 
         .charts-grid {
             display: grid;
-            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr);
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(320px, 0.72fr);
             gap: 24px;
         }
 
@@ -130,13 +130,6 @@
             width: min(100%, 360px);
         }
 
-        .symbol-content {
-            display: grid;
-            grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
-            gap: 18px;
-            align-items: start;
-        }
-
         .chart-table {
             margin-top: 18px;
             overflow-x: auto;
@@ -147,10 +140,10 @@
         }
 
         .qdii-title {
-            margin: 0 0 12px;
+            margin: 0 0 16px;
             color: var(--text-main);
-            font-size: 0.95rem;
-            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
         }
 
         .stat-table {
@@ -187,16 +180,22 @@
             letter-spacing: 0.08em;
         }
 
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .qdii-panel {
+                grid-column: 1 / -1;
+            }
+        }
+
         @media (max-width: 768px) {
             .dashboard-card {
                 padding: 24px 18px;
             }
 
             .charts-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .symbol-content {
                 grid-template-columns: 1fr;
             }
 
@@ -228,15 +227,14 @@
 
         <section class="chart-panel">
             <h2 class="chart-title">&#x6309;&#x5E01;&#x79CD;&#x5206;&#x5E03;</h2>
-            <div class="symbol-content">
-                <div>
-                    <div class="chart-container">
-                        <canvas id="symbolPieChart"></canvas>
-                    </div>
-                </div>
-                <div class="qdii-list" id="qdiiList"></div>
+            <div class="chart-container">
+                <canvas id="symbolPieChart"></canvas>
             </div>
             <div class="chart-table" id="symbolStatsTable"></div>
+        </section>
+
+        <section class="chart-panel qdii-panel">
+            <div class="qdii-list" id="qdiiList"></div>
         </section>
     </div>
 </div>
