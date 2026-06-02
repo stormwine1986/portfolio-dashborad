@@ -140,9 +140,16 @@
         }
 
         .qdii-title {
-            margin: 0 0 16px;
+            margin: 0;
             color: var(--text-main);
             font-size: 1rem;
+            text-align: center;
+        }
+
+        .qdii-summary {
+            margin: 6px 0 16px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
             text-align: center;
         }
 
@@ -397,6 +404,8 @@
 
     function renderQdiiList(rows) {
         const container = document.getElementById("qdiiList");
+        const totalQuota = rows.reduce((sum, item) => sum + Number(item.quota || 0), 0);
+        const formattedTotalQuota = totalQuota.toLocaleString("zh-CN");
 
         if (!container) {
             return;
@@ -405,17 +414,17 @@
         if (!rows.length) {
             container.innerHTML = `
                 <h3 class="qdii-title">QDII \u989d\u5ea6</h3>
+                <div class="qdii-summary">\u603b\u989d\uff1a0</div>
                 <table class="stat-table">
                     <thead>
                         <tr>
                             <th>\u540d\u79f0</th>
                             <th>\u989d\u5ea6</th>
-                            <th>\u66f4\u65b0\u65f6\u95f4</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="3">\u6682\u65e0\u6570\u636e</td>
+                            <td colspan="2">\u6682\u65e0\u6570\u636e</td>
                         </tr>
                     </tbody>
                 </table>
@@ -425,12 +434,12 @@
 
         container.innerHTML = `
             <h3 class="qdii-title">QDII \u989d\u5ea6</h3>
+            <div class="qdii-summary">\u603b\u989d\uff1a${formattedTotalQuota}</div>
             <table class="stat-table">
                 <thead>
                     <tr>
                         <th>\u540d\u79f0</th>
                         <th>\u989d\u5ea6</th>
-                        <th>\u66f4\u65b0\u65f6\u95f4</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -438,7 +447,6 @@
                         <tr>
                             <td>${escapeHtml(item.name)}</td>
                             <td class="is-number">${Number(item.quota ?? 0).toLocaleString("zh-CN")}</td>
-                            <td>${escapeHtml(item.updated_at)}</td>
                         </tr>
                     `).join("")}
                 </tbody>
