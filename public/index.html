@@ -219,7 +219,7 @@
         <div class="total-amount">
             <span id="totalAmount">CNY 0.00</span>
             <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
-            <button type="button" class="icon-button" id="toggleTableAmounts" aria-label="显示表格金额" title="显示表格金额"></button>
+            <button type="button" class="icon-button" id="toggleTableAmounts" aria-label="显示金额" title="显示金额"></button>
         </div>
     </div>
 
@@ -292,7 +292,7 @@
     ];
 
     let totalAmountRawValue = "0.00";
-    let tableAmountsVisible = false;
+    let amountsVisible = false;
     let latestRoleStats = [];
     let latestSymbolStats = [];
     let latestQdiiRows = [];
@@ -305,11 +305,11 @@
     }
 
     function setToggleTableAmountsState() {
-        const label = tableAmountsVisible ? "\u9690\u85cf\u8868\u683c\u91d1\u989d" : "\u663e\u793a\u8868\u683c\u91d1\u989d";
-        toggleTableAmountsButton.innerHTML = tableAmountsVisible ? icons.eye : icons.eyeOff;
+        const label = amountsVisible ? "\u9690\u85cf\u91d1\u989d" : "\u663e\u793a\u91d1\u989d";
+        toggleTableAmountsButton.innerHTML = amountsVisible ? icons.eye : icons.eyeOff;
         toggleTableAmountsButton.setAttribute("aria-label", label);
         toggleTableAmountsButton.setAttribute("title", label);
-        toggleTableAmountsButton.classList.toggle("is-active", tableAmountsVisible);
+        toggleTableAmountsButton.classList.toggle("is-active", amountsVisible);
     }
 
     function formatCny(value) {
@@ -341,11 +341,15 @@
     }
 
     function renderAmount(value) {
-        if (tableAmountsVisible) {
+        if (amountsVisible) {
             return formatCny(value);
         }
 
         return `<span class="amount-hidden" aria-label="\u91d1\u989d\u5df2\u9690\u85cf">\u2022\u2022\u2022\u2022\u2022\u2022</span>`;
+    }
+
+    function renderTotalAmount() {
+        totalAmountElement.innerHTML = renderAmount(totalAmountRawValue);
     }
 
     function renderStatTable(tableId, stats, firstColumnLabel) {
@@ -505,7 +509,7 @@
             latestRoleStats = data.stats_by_role || [];
             latestSymbolStats = data.stats_by_symbol || [];
             latestQdiiRows = data.qdii || [];
-            totalAmountElement.innerText = formatCny(data.total_cny);
+            renderTotalAmount();
             copyButton.disabled = false;
 
             renderPieChart("rolePieChart", latestRoleStats);
@@ -521,14 +525,16 @@
     }
 
     function toggleTableAmounts() {
-        tableAmountsVisible = !tableAmountsVisible;
+        amountsVisible = !amountsVisible;
         setToggleTableAmountsState();
+        renderTotalAmount();
         renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
     }
 
     setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
     setToggleTableAmountsState();
+    renderTotalAmount();
     copyButton.addEventListener("click", copyTotalAmount);
     toggleTableAmountsButton.addEventListener("click", toggleTableAmounts);
     window.addEventListener("load", fetchAndRenderChart);
