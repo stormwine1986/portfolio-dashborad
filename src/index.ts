@@ -15,6 +15,12 @@ interface ChartStat {
   value: number;
 }
 
+interface QdiiRow {
+  name: string;
+  quota: number;
+  updated_at: string;
+}
+
 const jsonHeaders = {
   "Content-Type": "application/json",
 };
@@ -88,11 +94,18 @@ async function fetchUsdToCnyRate(): Promise<number> {
 
 async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
-    const { results } = await env.DB.prepare(
-      "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
-    ).all<AssetRow>();
+    const [assetRows, qdiiRows] = await Promise.all([
+      env.DB.prepare(
+        "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
+      ).all<AssetRow>(),
+      env.DB.prepare(
+        "SELECT name, quota, updated_at FROM qdii ORDER BY updated_at DESC, name ASC"
+      ).all<QdiiRow>(),
+    ]);
 
-    const hasBtcAssets = (results ?? []).some((row) => row.symbol === "BTC");
+    const results = assetRows.results ?? [];
+
+    const hasBtcAssets = results.some((row) => row.symbol === "BTC");
 
     const [btcPriceUsd, usdToCny] = await Promise.all([
       hasBtcAssets ? fetchBtcPriceUsd() : Promise.resolve(undefined),
@@ -105,7 +118,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
 
-    for (const row of results ?? []) {
+    for (const row of results) {
       const unitPrice =
         row.symbol === "BTC" && btcPriceCny !== undefined
           ? btcPriceCny
@@ -137,6 +150,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         btc_price_cny: btcPriceCny,
         stats_by_role,
         stats_by_symbol,
+        qdii: qdiiRows.results ?? [],
       }),
       { headers: jsonHeaders }
     );
