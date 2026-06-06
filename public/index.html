@@ -377,7 +377,7 @@
                             <th>资产名称</th>
                             <th>币种</th>
                             <th class="is-number">持仓数量</th>
-                            <th class="is-number">角色占比</th>
+                            <th class="is-number">组合占比</th>
                         </tr>
                     </thead>
                     <tbody id="modalTableBody">
@@ -494,7 +494,7 @@
         if (!activeRoleFilter) return;
 
         const roleAssets = latestAssets.filter(asset => asset.role === activeRoleFilter);
-        const roleTotalCNY = roleAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
 
         if (!roleAssets.length) {
             modalTableBody.innerHTML = `
@@ -507,7 +507,7 @@
 
         modalTableBody.innerHTML = roleAssets.map((asset) => {
             const valCny = Number(asset.value_cny || 0);
-            const percentage = roleTotalCNY > 0 ? ((valCny / roleTotalCNY) * 100).toFixed(2) : "0.00";
+            const percentage = totalPortfolioCNY > 0 ? ((valCny / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
 
             const sharesDisplay = amountsVisible
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
