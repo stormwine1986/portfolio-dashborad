@@ -374,10 +374,9 @@
                 <table class="stat-table">
                     <thead>
                         <tr>
+                            <th>资产名称</th>
                             <th>币种</th>
                             <th class="is-number">持仓数量</th>
-                            <th class="is-number">单价 / 汇率</th>
-                            <th class="is-number">估值 (CNY)</th>
                             <th class="is-number">角色占比</th>
                         </tr>
                     </thead>
@@ -500,7 +499,7 @@
         if (!roleAssets.length) {
             modalTableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无持仓数据</td>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无持仓数据</td>
                 </tr>
             `;
             return;
@@ -510,29 +509,15 @@
             const valCny = Number(asset.value_cny || 0);
             const percentage = roleTotalCNY > 0 ? ((valCny / roleTotalCNY) * 100).toFixed(2) : "0.00";
 
-            let priceDisplay = "";
-            if (amountsVisible) {
-                if (asset.symbol === "USD") {
-                    priceDisplay = "1.00 USD";
-                } else if (asset.symbol === "BTC") {
-                    priceDisplay = formatCny(asset.market_price);
-                } else {
-                    priceDisplay = formatCny(asset.market_price);
-                }
-            } else {
-                priceDisplay = `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
-            }
-
             const sharesDisplay = amountsVisible
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
                 : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
 
             return `
                 <tr>
-                    <td><strong>${escapeHtml(asset.symbol)}</strong></td>
+                    <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
+                    <td>${escapeHtml(asset.symbol)}</td>
                     <td class="is-number">${sharesDisplay}</td>
-                    <td class="is-number">${priceDisplay}</td>
-                    <td class="is-number">${renderAmount(valCny)}</td>
                     <td class="is-number">${percentage}%</td>
                 </tr>
             `;

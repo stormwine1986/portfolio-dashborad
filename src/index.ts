@@ -8,6 +8,7 @@ interface AssetRow {
   market_price: number;
   symbol: string;
   Role: string;
+  name?: string;
 }
 
 interface ChartStat {
@@ -96,7 +97,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
     const [assetRows, qdiiRows] = await Promise.all([
       env.DB.prepare(
-        "SELECT shares, market_price, symbol, Role FROM assets WHERE shares > 0"
+        "SELECT * FROM assets WHERE shares > 0"
       ).all<AssetRow>(),
       env.DB.prepare(
         "SELECT name, quota, updated_at FROM qdii ORDER BY updated_at DESC, name ASC"
@@ -134,6 +135,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
       assetsList.push({
         symbol: row.symbol,
+        name: row.name || row.symbol,
         shares: row.shares,
         market_price: row.symbol === "BTC" && btcPriceCny !== undefined ? btcPriceCny : row.market_price,
         value_cny: Number(valueInCNY.toFixed(2)),
