@@ -178,7 +178,7 @@
             background: #f8fbff;
         }
 
-        .stat-table td.is-number {
+        .stat-table .is-number {
             text-align: right;
         }
 
@@ -209,6 +209,122 @@
             .chart-container {
                 height: 280px;
             }
+        }
+
+        /* Modal Overlay with Glassmorphism */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Modal Card Container */
+        .modal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 90%;
+            max-width: 680px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.95) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            overflow: hidden;
+        }
+
+        .modal-overlay.show .modal-card {
+            transform: scale(1) translateY(0);
+        }
+
+        /* Modal Header */
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #eef2f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        /* Close Button */
+        .close-button {
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font-size: 2rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 4px;
+            transition: color 0.2s ease, transform 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .close-button:hover {
+            color: var(--text-main);
+            background-color: #f3f4f6;
+        }
+
+        .close-button:active {
+            transform: scale(0.9);
+        }
+
+        /* Modal Body */
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            background-color: #ffffff;
+        }
+
+        .modal-table-container {
+            overflow-x: auto;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+        }
+
+        .modal-body .stat-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+        }
+
+        .modal-body .stat-table td {
+            font-size: 0.95rem;
+        }
+
+        .modal-body .stat-table tbody tr:last-child td {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -243,6 +359,34 @@
         <section class="chart-panel qdii-panel">
             <div class="qdii-list" id="qdiiList"></div>
         </section>
+    </div>
+</div>
+
+<!-- Modal for Role Holdings Detail -->
+<div id="roleDetailsModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="modalTitle" class="modal-title">角色的持仓明细</h3>
+            <button type="button" id="closeModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-table-container">
+                <table class="stat-table">
+                    <thead>
+                        <tr>
+                            <th>币种</th>
+                            <th class="is-number">持仓数量</th>
+                            <th class="is-number">单价 / 汇率</th>
+                            <th class="is-number">估值 (CNY)</th>
+                            <th class="is-number">角色占比</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTableBody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -296,6 +440,13 @@
     let latestRoleStats = [];
     let latestSymbolStats = [];
     let latestQdiiRows = [];
+    let latestAssets = [];
+    let activeRoleFilter = null;
+
+    const roleDetailsModal = document.getElementById("roleDetailsModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalTableBody = document.getElementById("modalTableBody");
 
     function setCopyButtonState(label, copied) {
         copyButton.innerHTML = copied ? icons.check : icons.copy;
@@ -327,6 +478,80 @@
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
     }
+
+    function openRoleDetailsModal(roleName) {
+        activeRoleFilter = roleName;
+        modalTitle.textContent = `角色的持仓明细 - ${roleName}`;
+        renderRoleDetailsTable();
+        roleDetailsModal.classList.add("show");
+    }
+
+    function closeRoleDetailsModal() {
+        roleDetailsModal.classList.remove("show");
+        activeRoleFilter = null;
+    }
+
+    function renderRoleDetailsTable() {
+        if (!activeRoleFilter) return;
+
+        const roleAssets = latestAssets.filter(asset => asset.role === activeRoleFilter);
+        const roleTotalCNY = roleAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+
+        if (!roleAssets.length) {
+            modalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无持仓数据</td>
+                </tr>
+            `;
+            return;
+        }
+
+        modalTableBody.innerHTML = roleAssets.map((asset) => {
+            const valCny = Number(asset.value_cny || 0);
+            const percentage = roleTotalCNY > 0 ? ((valCny / roleTotalCNY) * 100).toFixed(2) : "0.00";
+
+            let priceDisplay = "";
+            if (amountsVisible) {
+                if (asset.symbol === "USD") {
+                    priceDisplay = "1.00 USD";
+                } else if (asset.symbol === "BTC") {
+                    priceDisplay = formatCny(asset.market_price);
+                } else {
+                    priceDisplay = formatCny(asset.market_price);
+                }
+            } else {
+                priceDisplay = `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+            }
+
+            const sharesDisplay = amountsVisible
+                ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
+                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(asset.symbol)}</strong></td>
+                    <td class="is-number">${sharesDisplay}</td>
+                    <td class="is-number">${priceDisplay}</td>
+                    <td class="is-number">${renderAmount(valCny)}</td>
+                    <td class="is-number">${percentage}%</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    closeModalBtn.addEventListener("click", closeRoleDetailsModal);
+
+    roleDetailsModal.addEventListener("click", (event) => {
+        if (event.target === roleDetailsModal) {
+            closeRoleDetailsModal();
+        }
+    });
+
+    window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && roleDetailsModal.classList.contains("show")) {
+            closeRoleDetailsModal();
+        }
+    });
 
     async function copyTotalAmount() {
         try {
@@ -366,8 +591,8 @@
                     <thead>
                         <tr>
                             <th>${firstColumnLabel}</th>
-                            <th>\u6570\u989d (CNY)</th>
-                            <th>\u5360\u6bd4</th>
+                            <th class="is-number">\u6570\u989d (CNY)</th>
+                            <th class="is-number">\u5360\u6bd4</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -385,8 +610,8 @@
                 <thead>
                     <tr>
                         <th>${firstColumnLabel}</th>
-                        <th>\u6570\u989d (CNY)</th>
-                        <th>\u5360\u6bd4</th>
+                        <th class="is-number">\u6570\u989d (CNY)</th>
+                        <th class="is-number">\u5360\u6bd4</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -423,7 +648,7 @@
                     <thead>
                         <tr>
                             <th>\u540d\u79f0</th>
-                            <th>\u989d\u5ea6</th>
+                            <th class="is-number">\u989d\u5ea6</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -443,7 +668,7 @@
                 <thead>
                     <tr>
                         <th>\u540d\u79f0</th>
-                        <th>\u989d\u5ea6</th>
+                        <th class="is-number">\u989d\u5ea6</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -477,6 +702,21 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (event, activeElements) => {
+                    if (canvasId === "rolePieChart" && activeElements && activeElements.length > 0) {
+                        const index = activeElements[0].index;
+                        const roleName = labels[index];
+                        openRoleDetailsModal(roleName);
+                    }
+                },
+                onHover: (event, activeElements) => {
+                    if (canvasId === "rolePieChart") {
+                        const target = event.native ? event.native.target : (event.target || ctx.canvas);
+                        if (target) {
+                            target.style.cursor = (activeElements && activeElements.length > 0) ? "pointer" : "default";
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
                         position: "bottom",
@@ -509,6 +749,7 @@
             latestRoleStats = data.stats_by_role || [];
             latestSymbolStats = data.stats_by_symbol || [];
             latestQdiiRows = data.qdii || [];
+            latestAssets = data.assets || [];
             renderTotalAmount();
             copyButton.disabled = false;
 
@@ -530,6 +771,9 @@
         renderTotalAmount();
         renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
+        if (activeRoleFilter) {
+            renderRoleDetailsTable();
+        }
     }
 
     setCopyButtonState("\u590d\u5236\u91d1\u989d", false);

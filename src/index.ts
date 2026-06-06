@@ -117,6 +117,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const roleStats: Record<string, number> = {};
     const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
+    const assetsList: any[] = [];
 
     for (const row of results) {
       const unitPrice =
@@ -130,7 +131,17 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       roleStats[row.Role] = (roleStats[row.Role] ?? 0) + valueInCNY;
       symbolStats[row.symbol] = (symbolStats[row.symbol] ?? 0) + valueInCNY;
       totalAssetCNY += valueInCNY;
+
+      assetsList.push({
+        symbol: row.symbol,
+        shares: row.shares,
+        market_price: row.symbol === "BTC" && btcPriceCny !== undefined ? btcPriceCny : row.market_price,
+        value_cny: Number(valueInCNY.toFixed(2)),
+        role: row.Role,
+      });
     }
+
+    assetsList.sort((a, b) => b.value_cny - a.value_cny);
 
     const toSortedStats = (groupedStats: Record<string, number>): ChartStat[] =>
       Object.entries(groupedStats)
@@ -150,6 +161,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         btc_price_cny: btcPriceCny,
         stats_by_role,
         stats_by_symbol,
+        assets: assetsList,
         qdii: qdiiRows.results ?? [],
       }),
       { headers: jsonHeaders }
