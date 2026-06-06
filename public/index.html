@@ -480,7 +480,13 @@
 
     function openRoleDetailsModal(roleName) {
         activeRoleFilter = roleName;
-        modalTitle.textContent = `角色的持仓明细 - ${roleName}`;
+
+        const roleAssets = latestAssets.filter(asset => asset.role === roleName);
+        const roleTotalCNY = roleAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const rolePercentage = totalPortfolioCNY > 0 ? ((roleTotalCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+
+        modalTitle.textContent = `角色的持仓明细 - ${roleName} (占组合 ${rolePercentage}%)`;
         renderRoleDetailsTable();
         roleDetailsModal.classList.add("show");
     }
