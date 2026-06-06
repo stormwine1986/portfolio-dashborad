@@ -440,7 +440,8 @@
     let latestSymbolStats = [];
     let latestQdiiRows = [];
     let latestAssets = [];
-    let activeRoleFilter = null;
+    let activeFilterType = null;
+    let activeFilterValue = null;
 
     const roleDetailsModal = document.getElementById("roleDetailsModal");
     const closeModalBtn = document.getElementById("closeModalBtn");
@@ -478,31 +479,59 @@
             .replace(/'/g, "&#39;");
     }
 
-    function openRoleDetailsModal(roleName) {
-        activeRoleFilter = roleName;
+    function openDetailsModal(filterType, filterValue) {
+        activeFilterType = filterType;
+        activeFilterValue = filterValue;
 
-        const roleAssets = latestAssets.filter(asset => asset.role === roleName);
-        const roleTotalCNY = roleAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const filteredAssets = latestAssets.filter(asset => 
+            filterType === "role" ? asset.role === filterValue : asset.symbol === filterValue
+        );
+        const totalCNY = filteredAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
         const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
-        const rolePercentage = totalPortfolioCNY > 0 ? ((roleTotalCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+        const percentage = totalPortfolioCNY > 0 ? ((totalCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
 
-        modalTitle.textContent = `角色的持仓明细 - ${roleName} (占组合 ${rolePercentage}%)`;
-        renderRoleDetailsTable();
+        if (filterType === "role") {
+            modalTitle.textContent = `角色的持仓明细 - ${filterValue} (占组合 ${percentage}%)`;
+        } else {
+            modalTitle.textContent = `币种的持仓明细 - ${filterValue} (占组合 ${percentage}%)`;
+        }
+
+        renderDetailsTable();
         roleDetailsModal.classList.add("show");
     }
 
-    function closeRoleDetailsModal() {
+    function closeDetailsModal() {
         roleDetailsModal.classList.remove("show");
-        activeRoleFilter = null;
+        activeFilterType = null;
+        activeFilterValue = null;
     }
 
-    function renderRoleDetailsTable() {
-        if (!activeRoleFilter) return;
+    function renderDetailsTable() {
+        if (!activeFilterType || !activeFilterValue) return;
 
-        const roleAssets = latestAssets.filter(asset => asset.role === activeRoleFilter);
+        const filteredAssets = latestAssets.filter(asset => 
+            activeFilterType === "role" ? asset.role === activeFilterValue : asset.symbol === activeFilterValue
+        );
         const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
 
-        if (!roleAssets.length) {
+        const tableHead = document.querySelector("#roleDetailsModal thead tr");
+        if (activeFilterType === "role") {
+            tableHead.innerHTML = `
+                <th>资产名称</th>
+                <th>币种</th>
+                <th class="is-number">持仓数量</th>
+                <th class="is-number">组合占比</th>
+            `;
+        } else {
+            tableHead.innerHTML = `
+                <th>资产名称</th>
+                <th>角色</th>
+                <th class="is-number">持仓数量</th>
+                <th class="is-number">组合占比</th>
+            `;
+        }
+
+        if (!filteredAssets.length) {
             modalTableBody.innerHTML = `
                 <tr>
                     <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无持仓数据</td>
@@ -511,7 +540,7 @@
             return;
         }
 
-        modalTableBody.innerHTML = roleAssets.map((asset) => {
+        modalTableBody.innerHTML = filteredAssets.map((asset) => {
             const valCny = Number(asset.value_cny || 0);
             const percentage = totalPortfolioCNY > 0 ? ((valCny / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
 
@@ -519,10 +548,12 @@
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
                 : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
 
+            const col2Display = activeFilterType === "role" ? escapeHtml(asset.symbol) : escapeHtml(asset.role);
+
             return `
                 <tr>
                     <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
-                    <td>${escapeHtml(asset.symbol)}</td>
+                    <td>${col2Display}</td>
                     <td class="is-number">${sharesDisplay}</td>
                     <td class="is-number">${percentage}%</td>
                 </tr>
@@ -530,17 +561,17 @@
         }).join("");
     }
 
-    closeModalBtn.addEventListener("click", closeRoleDetailsModal);
+    closeModalBtn.addEventListener("click", closeDetailsModal);
 
     roleDetailsModal.addEventListener("click", (event) => {
         if (event.target === roleDetailsModal) {
-            closeRoleDetailsModal();
+            closeDetailsModal();
         }
     });
 
     window.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && roleDetailsModal.classList.contains("show")) {
-            closeRoleDetailsModal();
+            closeDetailsModal();
         }
     });
 
@@ -694,14 +725,18 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 onClick: (event, activeElements) => {
-                    if (canvasId === "rolePieChart" && activeElements && activeElements.length > 0) {
+                    if (activeElements && activeElements.length > 0) {
                         const index = activeElements[0].index;
-                        const roleName = labels[index];
-                        openRoleDetailsModal(roleName);
+                        const value = labels[index];
+                        if (canvasId === "rolePieChart") {
+                            openDetailsModal("role", value);
+                        } else if (canvasId === "symbolPieChart") {
+                            openDetailsModal("symbol", value);
+                        }
                     }
                 },
                 onHover: (event, activeElements) => {
-                    if (canvasId === "rolePieChart") {
+                    if (canvasId === "rolePieChart" || canvasId === "symbolPieChart") {
                         const target = event.native ? event.native.target : (event.target || ctx.canvas);
                         if (target) {
                             target.style.cursor = (activeElements && activeElements.length > 0) ? "pointer" : "default";
@@ -762,8 +797,8 @@
         renderTotalAmount();
         renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
-        if (activeRoleFilter) {
-            renderRoleDetailsTable();
+        if (activeFilterType && activeFilterValue) {
+            renderDetailsTable();
         }
     }
 
