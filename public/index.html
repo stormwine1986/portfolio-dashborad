@@ -151,7 +151,7 @@
             overflow: hidden;
             border: 1px solid #eef2f7;
             background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
-            align-self: start;
+            width: 100%;
         }
 
         .qdii-panel::before {
@@ -294,7 +294,6 @@
             overflow: hidden;
             border: 1px solid #eef2f7;
             background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
-            align-self: start;
             width: 100%;
         }
 
@@ -641,7 +640,7 @@
                     <thead>
                         <tr>
                             <th>资产名称</th>
-                            <th class="is-number">数量 (share)</th>
+                            <th class="is-number">数额</th>
                             <th>币种</th>
                             <th class="is-number">占总组合比例</th>
                         </tr>
@@ -1051,7 +1050,7 @@
                     </svg>
                 </div>
                 <h3 class="qdii-title">QDII 总额度</h3>
-                <div class="qdii-value">${formattedTotalQuota}</div>
+                <div class="qdii-value">${formattedTotalQuota} CNY</div>
                 <div class="qdii-hint">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
