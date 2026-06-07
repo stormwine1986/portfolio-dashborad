@@ -95,16 +95,20 @@ async function fetchUsdToCnyRate(): Promise<number> {
 
 async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
-    const [assetRows, qdiiRows] = await Promise.all([
+    const [assetRows, qdiiRows, tagRows] = await Promise.all([
       env.DB.prepare(
         "SELECT * FROM assets WHERE shares > 0"
       ).all<AssetRow>(),
       env.DB.prepare(
         "SELECT name, quota, updated_at FROM qdii ORDER BY updated_at DESC, name ASC"
       ).all<QdiiRow>(),
+      env.DB.prepare(
+        "SELECT name FROM tags WHERE label = '风险资产'"
+      ).all<{ name: string }>(),
     ]);
 
     const results = assetRows.results ?? [];
+    const riskAssetNames = new Set((tagRows.results ?? []).map((row) => row.name));
 
     const hasBtcAssets = results.some((row) => row.symbol === "BTC");
 
@@ -118,6 +122,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const roleStats: Record<string, number> = {};
     const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
+    let totalRiskAssetCNY = 0;
     const assetsList: any[] = [];
 
     for (const row of results) {
@@ -133,6 +138,11 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       symbolStats[row.symbol] = (symbolStats[row.symbol] ?? 0) + valueInCNY;
       totalAssetCNY += valueInCNY;
 
+      const isRisk = row.name && riskAssetNames.has(row.name);
+      if (isRisk) {
+        totalRiskAssetCNY += valueInCNY;
+      }
+
       assetsList.push({
         symbol: row.symbol,
         name: row.name || row.symbol,
@@ -140,6 +150,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         market_price: row.symbol === "BTC" && btcPriceCny !== undefined ? btcPriceCny : row.market_price,
         value_cny: Number(valueInCNY.toFixed(2)),
         role: row.Role,
+        is_risk: !!isRisk,
       });
     }
 
@@ -159,6 +170,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     return new Response(
       JSON.stringify({
         total_cny: Number(totalAssetCNY.toFixed(2)),
+        total_risk_cny: Number(totalRiskAssetCNY.toFixed(2)),
         usd_rate: usdToCny,
         btc_price_cny: btcPriceCny,
         stats_by_role,

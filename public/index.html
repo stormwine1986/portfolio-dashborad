@@ -276,13 +276,129 @@
             letter-spacing: 0.08em;
         }
 
+        .third-column-container {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            width: 100%;
+        }
+
+        .risk-panel {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+            align-self: start;
+            width: 100%;
+        }
+
+        .risk-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #f43f5e 0%, #ec4899 100%);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .risk-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%);
+        }
+
+        .risk-panel:hover::before {
+            opacity: 1;
+        }
+
+        .risk-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .risk-icon-container {
+            margin-bottom: 10px;
+            color: #f43f5e;
+            background: #ffe4e6;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .risk-panel:hover .risk-icon-container {
+            transform: scale(1.1);
+        }
+
+        .risk-title {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .risk-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #f43f5e;
+            letter-spacing: -0.02em;
+            margin: 8px 0 4px;
+            background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .risk-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 999px;
+            transition: all 0.3s ease;
+        }
+
+        .risk-panel:hover .risk-hint {
+            background: #ffe4e6;
+            color: #f43f5e;
+        }
+
         @media (max-width: 1200px) {
             .charts-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
-            .qdii-panel {
+            .third-column-container {
                 grid-column: 1 / -1;
+                flex-direction: row;
+            }
+
+            .qdii-panel, .risk-panel {
+                flex: 1;
+                align-self: stretch;
             }
         }
 
@@ -297,6 +413,10 @@
 
             .chart-container {
                 height: 280px;
+            }
+
+            .third-column-container {
+                flex-direction: column;
             }
         }
 
@@ -445,9 +565,14 @@
             <div class="chart-table" id="symbolStatsTable"></div>
         </section>
 
-        <section class="chart-panel qdii-panel" id="qdiiPanel">
-            <div class="qdii-list" id="qdiiList"></div>
-        </section>
+        <div class="third-column-container">
+            <section class="chart-panel qdii-panel" id="qdiiPanel">
+                <div class="qdii-list" id="qdiiList"></div>
+            </section>
+            <section class="chart-panel risk-panel" id="riskPanel">
+                <!-- Filled dynamically by JS -->
+            </section>
+        </div>
     </div>
 </div>
 
@@ -495,6 +620,33 @@
                         </tr>
                     </thead>
                     <tbody id="qdiiModalTableBody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Risk Holdings Detail -->
+<div id="riskDetailsModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="riskModalTitle" class="modal-title">风险资产明细</h3>
+            <button type="button" id="closeRiskModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-table-container">
+                <table class="stat-table">
+                    <thead>
+                        <tr>
+                            <th>资产名称</th>
+                            <th class="is-number">数量 (share)</th>
+                            <th>币种</th>
+                            <th class="is-number">占总组合比例</th>
+                        </tr>
+                    </thead>
+                    <tbody id="riskModalTableBody">
                         <!-- Filled by JS -->
                     </tbody>
                 </table>
@@ -566,6 +718,14 @@
     const qdiiDetailsModal = document.getElementById("qdiiDetailsModal");
     const closeQdiiModalBtn = document.getElementById("closeQdiiModalBtn");
     const qdiiModalTableBody = document.getElementById("qdiiModalTableBody");
+
+    const riskPanel = document.getElementById("riskPanel");
+    const riskDetailsModal = document.getElementById("riskDetailsModal");
+    const closeRiskModalBtn = document.getElementById("closeRiskModalBtn");
+    const riskModalTableBody = document.getElementById("riskModalTableBody");
+    const riskModalTitle = document.getElementById("riskModalTitle");
+
+    let totalRiskAmountRawValue = "0.00";
 
     function setCopyButtonState(label, copied) {
         copyButton.innerHTML = copied ? icons.check : icons.copy;
@@ -723,8 +883,61 @@
         }
     });
 
-    if (qdiiPanel) {
-        qdiiPanel.addEventListener("click", openQdiiDetailsModal);
+    function openRiskDetailsModal() {
+        renderRiskModalTable();
+        riskDetailsModal.classList.add("show");
+    }
+
+    function closeRiskDetailsModal() {
+        riskDetailsModal.classList.remove("show");
+    }
+
+    function renderRiskModalTable() {
+        const riskAssets = latestAssets.filter(asset => asset.is_risk);
+        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const totalRiskCNY = riskAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const riskPercentage = totalPortfolioCNY > 0 ? ((totalRiskCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+
+        riskModalTitle.textContent = `风险资产明细 (占组合 ${riskPercentage}%)`;
+
+        if (!riskAssets.length) {
+            riskModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无风险资产数据</td>
+                </tr>
+            `;
+            return;
+        }
+
+        riskModalTableBody.innerHTML = riskAssets.map((asset) => {
+            const valCny = Number(asset.value_cny || 0);
+            const percentage = totalPortfolioCNY > 0 ? ((valCny / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+
+            const sharesDisplay = amountsVisible
+                ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
+                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
+                    <td class="is-number">${sharesDisplay}</td>
+                    <td>${escapeHtml(asset.symbol)}</td>
+                    <td class="is-number">${percentage}%</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    closeRiskModalBtn.addEventListener("click", closeRiskDetailsModal);
+
+    riskDetailsModal.addEventListener("click", (event) => {
+        if (event.target === riskDetailsModal) {
+            closeRiskDetailsModal();
+        }
+    });
+
+    if (riskPanel) {
+        riskPanel.addEventListener("click", openRiskDetailsModal);
     }
 
     window.addEventListener("keydown", (event) => {
@@ -734,6 +947,9 @@
             }
             if (qdiiDetailsModal.classList.contains("show")) {
                 closeQdiiDetailsModal();
+            }
+            if (riskDetailsModal.classList.contains("show")) {
+                closeRiskDetailsModal();
             }
         }
     });
@@ -849,6 +1065,38 @@
         `;
     }
 
+    function renderRiskPanel(totalRiskCny, totalCny) {
+        const container = document.getElementById("riskPanel");
+        if (!container) {
+            return;
+        }
+
+        const percentage = totalCny > 0 ? ((totalRiskCny / totalCny) * 100).toFixed(2) : "0.00";
+
+        container.innerHTML = `
+            <div class="risk-content-wrapper">
+                <div class="risk-icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <h3 class="risk-title">风险头寸比例</h3>
+                <div class="risk-value">${percentage}%</div>
+                <div class="risk-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    点击查看风险资产明细
+                </div>
+            </div>
+        `;
+    }
+
     function renderPieChart(canvasId, stats) {
         const labels = stats.map((item) => item.label);
         const values = stats.map((item) => item.value);
@@ -916,6 +1164,7 @@
             const data = await response.json();
 
             totalAmountRawValue = Number(data.total_cny).toFixed(2);
+            totalRiskAmountRawValue = Number(data.total_risk_cny || 0).toFixed(2);
             latestRoleStats = data.stats_by_role || [];
             latestSymbolStats = data.stats_by_symbol || [];
             latestQdiiRows = data.qdii || [];
@@ -928,6 +1177,7 @@
             renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
             renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
             renderQdiiList(latestQdiiRows);
+            renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
@@ -943,6 +1193,9 @@
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
         if (activeFilterType && activeFilterValue) {
             renderDetailsTable();
+        }
+        if (riskDetailsModal.classList.contains("show")) {
+            renderRiskModalTable();
         }
     }
 
