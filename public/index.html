@@ -137,20 +137,109 @@
 
         .qdii-list {
             overflow-x: auto;
+            width: 100%;
+        }
+
+        .qdii-panel {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+            border: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+        }
+
+        .qdii-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent) 0%, #2dd4bf 100%);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .qdii-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(15, 118, 110, 0.1);
+            border-color: rgba(15, 118, 110, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+        }
+
+        .qdii-panel:hover::before {
+            opacity: 1;
+        }
+
+        .qdii-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .qdii-icon-container {
+            margin-bottom: 16px;
+            color: var(--accent);
+            background: var(--accent-soft);
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .qdii-panel:hover .qdii-icon-container {
+            transform: scale(1.1);
         }
 
         .qdii-title {
             margin: 0;
-            color: var(--text-main);
-            font-size: 1rem;
-            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .qdii-summary {
-            margin: 6px 0 16px;
+        .qdii-value {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: -0.02em;
+            margin: 12px 0 6px;
+            background: linear-gradient(135deg, var(--accent) 0%, #0d9488 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .qdii-hint {
+            font-size: 0.82rem;
             color: var(--text-muted);
-            font-size: 0.9rem;
-            text-align: center;
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 999px;
+            transition: all 0.3s ease;
+        }
+
+        .qdii-panel:hover .qdii-hint {
+            background: var(--accent-soft);
+            color: var(--accent);
         }
 
         .stat-table {
@@ -356,7 +445,7 @@
             <div class="chart-table" id="symbolStatsTable"></div>
         </section>
 
-        <section class="chart-panel qdii-panel">
+        <section class="chart-panel qdii-panel" id="qdiiPanel">
             <div class="qdii-list" id="qdiiList"></div>
         </section>
     </div>
@@ -381,6 +470,31 @@
                         </tr>
                     </thead>
                     <tbody id="modalTableBody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for QDII Quota Detail -->
+<div id="qdiiDetailsModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">QDII 额度明细</h3>
+            <button type="button" id="closeQdiiModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-table-container">
+                <table class="stat-table">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th class="is-number">额度</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qdiiModalTableBody">
                         <!-- Filled by JS -->
                     </tbody>
                 </table>
@@ -447,6 +561,11 @@
     const closeModalBtn = document.getElementById("closeModalBtn");
     const modalTitle = document.getElementById("modalTitle");
     const modalTableBody = document.getElementById("modalTableBody");
+
+    const qdiiPanel = document.getElementById("qdiiPanel");
+    const qdiiDetailsModal = document.getElementById("qdiiDetailsModal");
+    const closeQdiiModalBtn = document.getElementById("closeQdiiModalBtn");
+    const qdiiModalTableBody = document.getElementById("qdiiModalTableBody");
 
     function setCopyButtonState(label, copied) {
         copyButton.innerHTML = copied ? icons.check : icons.copy;
@@ -569,9 +688,53 @@
         }
     });
 
+    function openQdiiDetailsModal() {
+        renderQdiiModalTable();
+        qdiiDetailsModal.classList.add("show");
+    }
+
+    function closeQdiiDetailsModal() {
+        qdiiDetailsModal.classList.remove("show");
+    }
+
+    function renderQdiiModalTable() {
+        if (!latestQdiiRows.length) {
+            qdiiModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无额度数据</td>
+                </tr>
+            `;
+            return;
+        }
+
+        qdiiModalTableBody.innerHTML = latestQdiiRows.map((item) => `
+            <tr>
+                <td><strong>${escapeHtml(item.name)}</strong></td>
+                <td class="is-number">${Number(item.quota ?? 0).toLocaleString("zh-CN")}</td>
+            </tr>
+        `).join("");
+    }
+
+    closeQdiiModalBtn.addEventListener("click", closeQdiiDetailsModal);
+
+    qdiiDetailsModal.addEventListener("click", (event) => {
+        if (event.target === qdiiDetailsModal) {
+            closeQdiiDetailsModal();
+        }
+    });
+
+    if (qdiiPanel) {
+        qdiiPanel.addEventListener("click", openQdiiDetailsModal);
+    }
+
     window.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && roleDetailsModal.classList.contains("show")) {
-            closeDetailsModal();
+        if (event.key === "Escape") {
+            if (roleDetailsModal.classList.contains("show")) {
+                closeDetailsModal();
+            }
+            if (qdiiDetailsModal.classList.contains("show")) {
+                closeQdiiDetailsModal();
+            }
         }
     });
 
@@ -655,53 +818,34 @@
 
     function renderQdiiList(rows) {
         const container = document.getElementById("qdiiList");
-        const totalQuota = rows.reduce((sum, item) => sum + Number(item.quota || 0), 0);
-        const formattedTotalQuota = totalQuota.toLocaleString("zh-CN");
-
         if (!container) {
             return;
         }
 
-        if (!rows.length) {
-            container.innerHTML = `
-                <h3 class="qdii-title">QDII \u989d\u5ea6</h3>
-                <div class="qdii-summary">\u603b\u989d\uff1a0</div>
-                <table class="stat-table">
-                    <thead>
-                        <tr>
-                            <th>\u540d\u79f0</th>
-                            <th class="is-number">\u989d\u5ea6</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="2">\u6682\u65e0\u6570\u636e</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-            return;
-        }
+        const totalQuota = rows.reduce((sum, item) => sum + Number(item.quota || 0), 0);
+        const formattedTotalQuota = totalQuota.toLocaleString("zh-CN");
 
         container.innerHTML = `
-            <h3 class="qdii-title">QDII \u989d\u5ea6</h3>
-            <div class="qdii-summary">\u603b\u989d\uff1a${formattedTotalQuota}</div>
-            <table class="stat-table">
-                <thead>
-                    <tr>
-                        <th>\u540d\u79f0</th>
-                        <th class="is-number">\u989d\u5ea6</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.map((item) => `
-                        <tr>
-                            <td>${escapeHtml(item.name)}</td>
-                            <td class="is-number">${Number(item.quota ?? 0).toLocaleString("zh-CN")}</td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
+            <div class="qdii-content-wrapper">
+                <div class="qdii-icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                </div>
+                <h3 class="qdii-title">QDII 总额度</h3>
+                <div class="qdii-value">${formattedTotalQuota}</div>
+                <div class="qdii-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    点击查看机构明细
+                </div>
+            </div>
         `;
     }
 
