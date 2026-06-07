@@ -385,6 +385,108 @@
             color: #f43f5e;
         }
 
+        .ai-panel {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+            width: 100%;
+        }
+
+        .ai-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .ai-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #eef2ff 100%);
+        }
+
+        .ai-panel:hover::before {
+            opacity: 1;
+        }
+
+        .ai-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .ai-icon-container {
+            margin-bottom: 10px;
+            color: #6366f1;
+            background: #e0e7ff;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .ai-panel:hover .ai-icon-container {
+            transform: scale(1.1);
+        }
+
+        .ai-title {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .ai-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #6366f1;
+            letter-spacing: -0.02em;
+            margin: 8px 0 4px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .ai-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 999px;
+            transition: all 0.3s ease;
+        }
+
+        .ai-panel:hover .ai-hint {
+            background: #e0e7ff;
+            color: #6366f1;
+        }
+
         @media (max-width: 1200px) {
             .charts-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -395,7 +497,7 @@
                 flex-direction: row;
             }
 
-            .qdii-panel, .risk-panel {
+            .qdii-panel, .risk-panel, .ai-panel {
                 flex: 1;
                 align-self: stretch;
             }
@@ -571,6 +673,9 @@
             <section class="chart-panel risk-panel" id="riskPanel">
                 <!-- Filled dynamically by JS -->
             </section>
+            <section class="chart-panel ai-panel" id="aiPanel">
+                <!-- Filled dynamically by JS -->
+            </section>
         </div>
     </div>
 </div>
@@ -654,6 +759,33 @@
     </div>
 </div>
 
+<!-- Modal for AI Holdings Detail -->
+<div id="aiDetailsModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="aiModalTitle" class="modal-title">All in AI 资产明细</h3>
+            <button type="button" id="closeAiModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-table-container">
+                <table class="stat-table">
+                    <thead>
+                        <tr>
+                            <th>资产名称</th>
+                            <th class="is-number">数额</th>
+                            <th>币种</th>
+                            <th class="is-number">占总组合比例</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aiModalTableBody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
@@ -725,6 +857,14 @@
     const riskModalTitle = document.getElementById("riskModalTitle");
 
     let totalRiskAmountRawValue = "0.00";
+
+    const aiPanel = document.getElementById("aiPanel");
+    const aiDetailsModal = document.getElementById("aiDetailsModal");
+    const closeAiModalBtn = document.getElementById("closeAiModalBtn");
+    const aiModalTableBody = document.getElementById("aiModalTableBody");
+    const aiModalTitle = document.getElementById("aiModalTitle");
+
+    let totalAiAmountRawValue = "0.00";
 
     function setCopyButtonState(label, copied) {
         copyButton.innerHTML = copied ? icons.check : icons.copy;
@@ -945,12 +1085,74 @@
         }
     });
 
+    function openAiDetailsModal() {
+        renderAiModalTable();
+        aiDetailsModal.classList.add("show");
+    }
+
+    function closeAiDetailsModal() {
+        aiDetailsModal.classList.remove("show");
+    }
+
+    function renderAiModalTable() {
+        const aiAssets = latestAssets.filter(asset => asset.is_ai);
+        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const totalAiCNY = aiAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const aiPercentage = totalPortfolioCNY > 0 ? ((totalAiCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+
+        const aiPercentageDisplay = amountsVisible ? `${aiPercentage}%` : "••••••";
+        aiModalTitle.textContent = `All in AI 资产明细 (占组合 ${aiPercentageDisplay})`;
+
+        if (!aiAssets.length) {
+            aiModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无 AI 资产数据</td>
+                </tr>
+            `;
+            return;
+        }
+
+        aiModalTableBody.innerHTML = aiAssets.map((asset) => {
+            const valCny = Number(asset.value_cny || 0);
+            const percentage = totalPortfolioCNY > 0 ? ((valCny / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+
+            const sharesDisplay = amountsVisible
+                ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
+                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+
+            const percentageDisplay = amountsVisible
+                ? `${percentage}%`
+                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
+                    <td class="is-number">${sharesDisplay}</td>
+                    <td>${escapeHtml(asset.symbol)}</td>
+                    <td class="is-number">${percentageDisplay}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    closeAiModalBtn.addEventListener("click", closeAiDetailsModal);
+
+    aiDetailsModal.addEventListener("click", (event) => {
+        if (event.target === aiDetailsModal) {
+            closeAiDetailsModal();
+        }
+    });
+
     if (qdiiPanel) {
         qdiiPanel.addEventListener("click", openQdiiDetailsModal);
     }
 
     if (riskPanel) {
         riskPanel.addEventListener("click", openRiskDetailsModal);
+    }
+
+    if (aiPanel) {
+        aiPanel.addEventListener("click", openAiDetailsModal);
     }
 
     window.addEventListener("keydown", (event) => {
@@ -963,6 +1165,9 @@
             }
             if (riskDetailsModal.classList.contains("show")) {
                 closeRiskDetailsModal();
+            }
+            if (aiDetailsModal.classList.contains("show")) {
+                closeAiDetailsModal();
             }
         }
     });
@@ -1116,6 +1321,48 @@
         `;
     }
 
+    function renderAiPanel(totalAiCny, totalCny) {
+        const container = document.getElementById("aiPanel");
+        if (!container) {
+            return;
+        }
+
+        const percentage = totalCny > 0 ? ((totalAiCny / totalCny) * 100).toFixed(2) : "0.00";
+        const percentageDisplay = amountsVisible
+            ? `${percentage}%`
+            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+
+        container.innerHTML = `
+            <div class="ai-content-wrapper">
+                <div class="ai-icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                        <rect x="9" y="9" width="6" height="6"></rect>
+                        <line x1="9" y1="1" x2="9" y2="4"></line>
+                        <line x1="15" y1="1" x2="15" y2="4"></line>
+                        <line x1="9" y1="20" x2="9" y2="23"></line>
+                        <line x1="15" y1="20" x2="15" y2="23"></line>
+                        <line x1="20" y1="9" x2="23" y2="9"></line>
+                        <line x1="20" y1="15" x2="23" y2="15"></line>
+                        <line x1="1" y1="9" x2="4" y2="9"></line>
+                        <line x1="1" y1="15" x2="4" y2="15"></line>
+                    </svg>
+                </div>
+                <h3 class="ai-title">All in AI 比例</h3>
+                <div class="ai-value">${percentageDisplay}</div>
+                <div class="ai-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    点击查看资产清单
+                </div>
+            </div>
+        `;
+    }
+
     function renderPieChart(canvasId, stats) {
         const labels = stats.map((item) => item.label);
         const values = stats.map((item) => item.value);
@@ -1187,6 +1434,7 @@
 
             totalAmountRawValue = Number(data.total_cny).toFixed(2);
             totalRiskAmountRawValue = Number(data.total_risk_cny || 0).toFixed(2);
+            totalAiAmountRawValue = Number(data.total_ai_cny || 0).toFixed(2);
             latestRoleStats = data.stats_by_role || [];
             latestSymbolStats = data.stats_by_symbol || [];
             latestQdiiRows = data.qdii || [];
@@ -1200,6 +1448,7 @@
             renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
             renderQdiiList(latestQdiiRows);
             renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
+            renderAiPanel(totalAiAmountRawValue, totalAmountRawValue);
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
@@ -1214,11 +1463,15 @@
         renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
         renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
+        renderAiPanel(totalAiAmountRawValue, totalAmountRawValue);
         if (activeFilterType && activeFilterValue) {
             renderDetailsTable();
         }
         if (riskDetailsModal.classList.contains("show")) {
             renderRiskModalTable();
+        }
+        if (aiDetailsModal.classList.contains("show")) {
+            renderAiModalTable();
         }
     }
 

@@ -103,12 +103,20 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         "SELECT name, quota, updated_at FROM qdii ORDER BY updated_at DESC, name ASC"
       ).all<QdiiRow>(),
       env.DB.prepare(
-        "SELECT name FROM tags WHERE label = '风险资产'"
-      ).all<{ name: string }>(),
+        "SELECT name, label FROM tags"
+      ).all<{ name: string; label: string }>(),
     ]);
 
     const results = assetRows.results ?? [];
-    const riskAssetNames = new Set((tagRows.results ?? []).map((row) => row.name));
+    const riskAssetNames = new Set<string>();
+    const aiAssetNames = new Set<string>();
+    for (const tag of tagRows.results ?? []) {
+      if (tag.label === "风险资产") {
+        riskAssetNames.add(tag.name);
+      } else if (tag.label === "All in AI") {
+        aiAssetNames.add(tag.name);
+      }
+    }
 
     const hasBtcAssets = results.some((row) => row.symbol === "BTC");
 
@@ -123,6 +131,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const symbolStats: Record<string, number> = {};
     let totalAssetCNY = 0;
     let totalRiskAssetCNY = 0;
+    let totalAiAssetCNY = 0;
     const assetsList: any[] = [];
 
     for (const row of results) {
@@ -143,6 +152,11 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         totalRiskAssetCNY += valueInCNY;
       }
 
+      const isAi = row.name && aiAssetNames.has(row.name);
+      if (isAi) {
+        totalAiAssetCNY += valueInCNY;
+      }
+
       assetsList.push({
         symbol: row.symbol,
         name: row.name || row.symbol,
@@ -151,6 +165,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         value_cny: Number(valueInCNY.toFixed(2)),
         role: row.Role,
         is_risk: !!isRisk,
+        is_ai: !!isAi,
       });
     }
 
@@ -171,6 +186,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       JSON.stringify({
         total_cny: Number(totalAssetCNY.toFixed(2)),
         total_risk_cny: Number(totalRiskAssetCNY.toFixed(2)),
+        total_ai_cny: Number(totalAiAssetCNY.toFixed(2)),
         usd_rate: usdToCny,
         btc_price_cny: btcPriceCny,
         stats_by_role,
