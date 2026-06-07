@@ -768,10 +768,11 @@
         const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
         const percentage = totalPortfolioCNY > 0 ? ((totalCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
 
+        const percentageDisplay = amountsVisible ? `${percentage}%` : "••••••";
         if (filterType === "role") {
-            modalTitle.textContent = `角色的持仓明细 - ${filterValue} (占组合 ${percentage}%)`;
+            modalTitle.textContent = `角色的持仓明细 - ${filterValue} (占组合 ${percentageDisplay})`;
         } else {
-            modalTitle.textContent = `币种的持仓明细 - ${filterValue} (占组合 ${percentage}%)`;
+            modalTitle.textContent = `币种的持仓明细 - ${filterValue} (占组合 ${percentageDisplay})`;
         }
 
         renderDetailsTable();
@@ -826,6 +827,10 @@
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
                 : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
 
+            const percentageDisplay = amountsVisible
+                ? `${percentage}%`
+                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+
             const col2Display = activeFilterType === "role" ? escapeHtml(asset.symbol) : escapeHtml(asset.role);
 
             return `
@@ -833,7 +838,7 @@
                     <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
                     <td>${col2Display}</td>
                     <td class="is-number">${sharesDisplay}</td>
-                    <td class="is-number">${percentage}%</td>
+                    <td class="is-number">${percentageDisplay}</td>
                 </tr>
             `;
         }).join("");
@@ -897,7 +902,8 @@
         const totalRiskCNY = riskAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
         const riskPercentage = totalPortfolioCNY > 0 ? ((totalRiskCNY / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
 
-        riskModalTitle.textContent = `风险资产明细 (占组合 ${riskPercentage}%)`;
+        const riskPercentageDisplay = amountsVisible ? `${riskPercentage}%` : "••••••";
+        riskModalTitle.textContent = `风险资产明细 (占组合 ${riskPercentageDisplay})`;
 
         if (!riskAssets.length) {
             riskModalTableBody.innerHTML = `
@@ -916,12 +922,16 @@
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
                 : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
 
+            const percentageDisplay = amountsVisible
+                ? `${percentage}%`
+                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+
             return `
                 <tr>
                     <td><strong>${escapeHtml(asset.name || asset.symbol)}</strong></td>
                     <td class="is-number">${sharesDisplay}</td>
                     <td>${escapeHtml(asset.symbol)}</td>
-                    <td class="is-number">${percentage}%</td>
+                    <td class="is-number">${percentageDisplay}</td>
                 </tr>
             `;
         }).join("");
@@ -1022,11 +1032,14 @@
                     ${stats.map((item) => {
                         const value = Number(item.value || 0);
                         const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
+                        const percentageDisplay = amountsVisible
+                            ? `${percentage}%`
+                            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
                         return `
                             <tr>
                                 <td>${item.label}</td>
                                 <td class="is-number">${renderAmount(value)}</td>
-                                <td class="is-number">${percentage}%</td>
+                                <td class="is-number">${percentageDisplay}</td>
                             </tr>
                         `;
                     }).join("")}
@@ -1075,6 +1088,9 @@
         }
 
         const percentage = totalCny > 0 ? ((totalRiskCny / totalCny) * 100).toFixed(2) : "0.00";
+        const percentageDisplay = amountsVisible
+            ? `${percentage}%`
+            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
 
         container.innerHTML = `
             <div class="risk-content-wrapper">
@@ -1086,7 +1102,7 @@
                     </svg>
                 </div>
                 <h3 class="risk-title">风险头寸比例</h3>
-                <div class="risk-value">${percentage}%</div>
+                <div class="risk-value">${percentageDisplay}</div>
                 <div class="risk-hint">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -1149,6 +1165,9 @@
                         callbacks: {
                             label(context) {
                                 const label = context.label || "";
+                                if (!amountsVisible) {
+                                    return `${label}: •••••• (••••••)`;
+                                }
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
                                 const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
@@ -1194,6 +1213,7 @@
         renderTotalAmount();
         renderStatTable("roleStatsTable", latestRoleStats, "\u89d2\u8272\u540d");
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
+        renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
         if (activeFilterType && activeFilterValue) {
             renderDetailsTable();
         }
