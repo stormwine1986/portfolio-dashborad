@@ -698,6 +698,7 @@
             <span id="totalAmount">CNY 0.00</span>
             <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
             <button type="button" class="icon-button" id="toggleTableAmounts" aria-label="显示金额" title="显示金额"></button>
+            <button type="button" class="icon-button" id="savePagePng" aria-label="保存页面为图片" title="保存页面为图片" disabled></button>
         </div>
     </div>
 
@@ -878,6 +879,25 @@
                 <path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-3.1 4.1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.4-.9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
+        `,
+        image: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+        `,
+        spinner: `
+            <svg class="animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="2" x2="12" y2="6"></line>
+                <line x1="12" y1="18" x2="12" y2="22"></line>
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                <line x1="2" y1="12" x2="6" y2="12"></line>
+                <line x1="18" y1="12" x2="22" y2="12"></line>
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+            </svg>
         `
     };
     const chartPalette = [
@@ -928,6 +948,8 @@
     const aiModalTitle = document.getElementById("aiModalTitle");
 
     let totalAiAmountRawValue = "0.00";
+
+    const savePagePngButton = document.getElementById("savePagePng");
 
     function setCopyButtonState(label, copied) {
         copyButton.innerHTML = copied ? icons.check : icons.copy;
@@ -1028,11 +1050,11 @@
 
             const sharesDisplay = amountsVisible
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
-                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })}" aria-label="金额已隐藏">••••••</span>`;
 
             const percentageDisplay = amountsVisible
                 ? `${percentage}%`
-                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
 
             const col2Display = activeFilterType === "role" ? escapeHtml(asset.symbol) : escapeHtml(asset.role);
 
@@ -1244,11 +1266,11 @@
 
             const sharesDisplay = amountsVisible
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
-                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })}" aria-label="金额已隐藏">••••••</span>`;
 
             const percentageDisplay = amountsVisible
                 ? `${percentage}%`
-                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
 
             return `
                 <tr>
@@ -1302,11 +1324,11 @@
 
             const sharesDisplay = amountsVisible
                 ? Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })
-                : `<span class="amount-hidden" aria-label="金额已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${Number(asset.shares).toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 6 })}" aria-label="金额已隐藏">••••••</span>`;
 
             const percentageDisplay = amountsVisible
                 ? `${percentage}%`
-                : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+                : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
 
             return `
                 <tr>
@@ -1369,11 +1391,12 @@
     }
 
     function renderAmount(value) {
+        const formatted = formatCny(value);
         if (amountsVisible) {
-            return formatCny(value);
+            return formatted;
         }
 
-        return `<span class="amount-hidden" aria-label="\u91d1\u989d\u5df2\u9690\u85cf">\u2022\u2022\u2022\u2022\u2022\u2022</span>`;
+        return `<span class="amount-hidden" data-real-value="${formatted}" aria-label="\u91d1\u989d\u5df2\u9690\u85cf">\u2022\u2022\u2022\u2022\u2022\u2022</span>`;
     }
 
     function renderTotalAmount() {
@@ -1423,7 +1446,7 @@
                         const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
                         const percentageDisplay = amountsVisible
                             ? `${percentage}%`
-                            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+                            : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
                         return `
                             <tr>
                                 <td>${item.label}</td>
@@ -1479,7 +1502,7 @@
         const percentage = totalCny > 0 ? ((totalRiskCny / totalCny) * 100).toFixed(2) : "0.00";
         const percentageDisplay = amountsVisible
             ? `${percentage}%`
-            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+            : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
 
         container.innerHTML = `
             <div class="risk-content-wrapper">
@@ -1514,7 +1537,7 @@
         const percentage = totalCny > 0 ? ((totalAiCny / totalCny) * 100).toFixed(2) : "0.00";
         const percentageDisplay = amountsVisible
             ? `${percentage}%`
-            : `<span class="amount-hidden" aria-label="比例已隐藏">••••••</span>`;
+            : `<span class="amount-hidden" data-real-value="${percentage}%" aria-label="比例已隐藏">••••••</span>`;
 
         container.innerHTML = `
             <div class="ai-content-wrapper">
@@ -1633,10 +1656,12 @@
             renderQdiiList(latestQdiiRows);
             renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
             renderAiPanel(totalAiAmountRawValue, totalAmountRawValue);
+            savePagePngButton.disabled = false;
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
             copyButton.disabled = true;
+            savePagePngButton.disabled = true;
         }
     }
 
@@ -1659,11 +1684,70 @@
         }
     }
 
+    function setSaveButtonState(generating) {
+        savePagePngButton.innerHTML = generating ? icons.spinner : icons.image;
+        const label = generating ? "\u6b63\u5728\u751f\u6210\u56fe\u7247..." : "\u4fdd\u5b58\u9875\u9762\u4e3a\u56fe\u7247";
+        savePagePngButton.setAttribute("aria-label", label);
+        savePagePngButton.setAttribute("title", label);
+    }
+
+    async function savePagePng() {
+        const dashboardCard = document.querySelector(".dashboard-card");
+        if (!dashboardCard) return;
+
+        setSaveButtonState(true);
+        savePagePngButton.disabled = true;
+
+        try {
+            // Wait briefly to ensure UI states settle
+            await new Promise(resolve => setTimeout(resolve, 150));
+
+            const canvas = await html2canvas(dashboardCard, {
+                useCORS: true,
+                scale: 2, // High resolution
+                backgroundColor: null,
+                onclone: (clonedDoc) => {
+                    // 1. Reveal all hidden values in the cloned DOM
+                    const hiddenElements = clonedDoc.querySelectorAll(".amount-hidden");
+                    hiddenElements.forEach((el) => {
+                        const realValue = el.getAttribute("data-real-value");
+                        if (realValue) {
+                            el.textContent = realValue;
+                        }
+                    });
+
+                    // 2. Hide interactive buttons in the header so they don't appear in the PNG
+                    const buttonsToHide = ["copyTotalAmount", "toggleTableAmounts", "savePagePng"];
+                    buttonsToHide.forEach((id) => {
+                        const btn = clonedDoc.getElementById(id);
+                        if (btn) {
+                            btn.style.display = "none";
+                        }
+                    });
+                }
+            });
+
+            const imageUri = canvas.toDataURL("image/png");
+            const link = document.createElement("a");
+            link.href = imageUri;
+            link.download = `\u8d44\u4ea7\u914d\u7f6e\u770b\u677f_${new Date().toISOString().slice(0, 10)}.png`;
+            link.click();
+        } catch (error) {
+            console.error("保存图片失败", error);
+            alert("\u4fdd\u5b58\u56fe\u7247\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\uff01");
+        } finally {
+            savePagePngButton.disabled = false;
+            setSaveButtonState(false);
+        }
+    }
+
     setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
     setToggleTableAmountsState();
+    setSaveButtonState(false);
     renderTotalAmount();
     copyButton.addEventListener("click", copyTotalAmount);
     toggleTableAmountsButton.addEventListener("click", toggleTableAmounts);
+    savePagePngButton.addEventListener("click", savePagePng);
     window.addEventListener("load", fetchAndRenderChart);
 </script>
 </body>
