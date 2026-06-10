@@ -1724,6 +1724,20 @@
                             btn.style.display = "none";
                         }
                     });
+
+                    // 3. Remove background gradient and text clipping for html2canvas compatibility
+                    const gradientValues = clonedDoc.querySelectorAll(".risk-value, .ai-value, .qdii-value");
+                    gradientValues.forEach((el) => {
+                        el.style.background = "none";
+                        el.style.webkitTextFillColor = "initial";
+                        if (el.classList.contains("risk-value")) {
+                            el.style.color = "#f43f5e";
+                        } else if (el.classList.contains("ai-value")) {
+                            el.style.color = "#6366f1";
+                        } else if (el.classList.contains("qdii-value")) {
+                            el.style.color = "#0f766e";
+                        }
+                    });
                 }
             });
 
