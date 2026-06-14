@@ -201,14 +201,19 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const stats_by_role = toSortedStats(roleStats);
     const stats_by_symbol = toSortedStats(symbolStats);
 
-    // Calculate currency balances from assets list
+    // Calculate currency balances from assets list (filtering by cash role and using shares directly to get pure currency amounts)
     let cnyBalance = 0;
     let usdBalance = 0;
     for (const row of results) {
-      if (row.symbol === "CNY") {
-        cnyBalance += row.shares * row.market_price;
-      } else if (row.symbol === "USD") {
-        usdBalance += row.shares * row.market_price;
+      const roleLower = (row.Role || "").toLowerCase();
+      const isCash = roleLower === "cash" || roleLower === "流动性" || roleLower === "现金";
+      if (isCash) {
+        const symbolUpper = (row.symbol || "").toUpperCase();
+        if (symbolUpper === "CNY") {
+          cnyBalance += row.shares;
+        } else if (symbolUpper === "USD") {
+          usdBalance += row.shares;
+        }
       }
     }
 
@@ -228,7 +233,8 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const dcaList = dcas.map((row) => {
       // DCA represents expenditures, implicitly negative. We treat its absolute value as the positive expenditure.
       const absAmount = Math.abs(row.amount);
-      const valueCnyRaw = row.symbol === "USD" ? absAmount * usdToCny : absAmount;
+      const symbolUpper = (row.symbol || "").toUpperCase();
+      const valueCnyRaw = symbolUpper === "USD" ? absAmount * usdToCny : absAmount;
       
       let monthlyAmount = valueCnyRaw;
       const freq = (row.frequency || "").trim();
@@ -260,7 +266,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         monthlyAmountOriginal = absAmount / 12;
       }
 
-      if (row.symbol === "USD") {
+      if (symbolUpper === "USD") {
         totalUsdDca += monthlyAmountOriginal;
       } else {
         totalCnyDca += monthlyAmountOriginal;
