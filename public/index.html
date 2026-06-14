@@ -1270,6 +1270,44 @@
             subDcaDisplay = `-¥${Number(totalDcaCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}`;
         }
 
+        // Calculate runway strings and colors
+        let cnyBurnVal = "无需担心 (净流入)";
+        let cnyBurnColor = "#0f766e";
+        let usdBurnVal = "无需担心 (无定投)";
+        let usdBurnColor = "#0f766e";
+
+        const cnyMonths = latestExpenseData.cny_burn_months;
+        if (cnyMonths !== null) {
+            cnyBurnVal = `${cnyMonths} 个月`;
+            if (cnyMonths < 6) {
+                cnyBurnColor = "#f43f5e";
+            } else if (cnyMonths < 12) {
+                cnyBurnColor = "#d97706";
+            } else {
+                cnyBurnColor = "#0f766e";
+            }
+        }
+
+        const usdMonths = latestExpenseData.usd_burn_months;
+        if (usdMonths !== null) {
+            usdBurnVal = `${usdMonths} 个月`;
+            if (usdMonths < 6) {
+                usdBurnColor = "#f43f5e";
+            } else if (usdMonths < 12) {
+                usdBurnColor = "#d97706";
+            } else {
+                usdBurnColor = "#0f766e";
+            }
+        }
+
+        const cnyBurnDisplay = amountsVisible
+            ? cnyBurnVal
+            : `<span class="amount-hidden" data-real-value="${cnyBurnVal}">••••••</span>`;
+
+        const usdBurnDisplay = amountsVisible
+            ? usdBurnVal
+            : `<span class="amount-hidden" data-real-value="${usdBurnVal}">••••••</span>`;
+
         container.innerHTML = `
             <div class="expense-content-wrapper">
                 <div class="expense-icon-container">
@@ -1284,6 +1322,18 @@
                     <span>月均结余: ${subAvgDisplay}</span>
                     <span>月均定投: ${subDcaDisplay}</span>
                 </div>
+                
+                <div style="width: 100%; border-top: 1px dashed #e2e8f0; margin: 10px 0 8px; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; text-align: left; box-sizing: border-box;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span style="color: var(--text-muted);">CNY 燃尽时间:</span>
+                        <strong style="color: ${cnyBurnColor};">${cnyBurnDisplay}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span style="color: var(--text-muted);">USD 燃尽时间:</span>
+                        <strong style="color: ${usdBurnColor};">${usdBurnDisplay}</strong>
+                    </div>
+                </div>
+
                 <div class="expense-hint">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>

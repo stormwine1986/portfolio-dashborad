@@ -201,6 +201,17 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const stats_by_role = toSortedStats(roleStats);
     const stats_by_symbol = toSortedStats(symbolStats);
 
+    // Calculate currency balances from assets list
+    let cnyBalance = 0;
+    let usdBalance = 0;
+    for (const row of results) {
+      if (row.symbol === "CNY") {
+        cnyBalance += row.shares * row.market_price;
+      } else if (row.symbol === "USD") {
+        usdBalance += row.shares * row.market_price;
+      }
+    }
+
     // Calculate Monthly Liquidity
     const flows = flowRows.results ?? [];
     // flow is monthly liquidity: negative means expense, positive means savings.
@@ -211,6 +222,9 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
     const dcas = dcaRows.results ?? [];
     let totalDcaCny = 0;
+    let totalCnyDca = 0;
+    let totalUsdDca = 0;
+
     const dcaList = dcas.map((row) => {
       // DCA represents expenditures, implicitly negative. We treat its absolute value as the positive expenditure.
       const absAmount = Math.abs(row.amount);
@@ -231,6 +245,26 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       }
       
       totalDcaCny += monthlyAmount;
+
+      // Accumulate DCA per currency (in original currency amounts for usd, or normalized cny)
+      let monthlyAmountOriginal = absAmount;
+      if (freq === "周" || freq === "每周" || freq === "weekly") {
+        monthlyAmountOriginal = absAmount * (52 / 12);
+      } else if (freq === "双周" || freq === "每双周" || freq === "每两周" || freq === "biweekly") {
+        monthlyAmountOriginal = absAmount * (26 / 12);
+      } else if (freq === "日" || freq === "每天" || freq === "每日" || freq === "daily") {
+        monthlyAmountOriginal = absAmount * 30.4375;
+      } else if (freq === "季" || freq === "每季" || freq === "季度" || freq === "quarterly") {
+        monthlyAmountOriginal = absAmount / 3;
+      } else if (freq === "年" || freq === "每年" || freq === "年度" || freq === "yearly") {
+        monthlyAmountOriginal = absAmount / 12;
+      }
+
+      if (row.symbol === "USD") {
+        totalUsdDca += monthlyAmountOriginal;
+      } else {
+        totalCnyDca += monthlyAmountOriginal;
+      }
       
       return {
         name: row.name,
@@ -244,6 +278,15 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     });
 
     const netMonthlyLiquidity = avgFlowCny - totalDcaCny;
+
+    // Calculate burn rates (inflow/outflow)
+    // CNY net monthly flow = historical flow (CNY) - monthly CNY DCA
+    const cnyNetFlow = avgFlowCny - totalCnyDca;
+    const cnyBurnMonths = cnyNetFlow < 0 ? (cnyBalance / Math.abs(cnyNetFlow)) : null;
+
+    // USD net monthly flow = - monthly USD DCA (since no USD historical inflow is recorded)
+    const usdNetFlow = -totalUsdDca;
+    const usdBurnMonths = totalUsdDca > 0 ? (usdBalance / totalUsdDca) : null;
 
     return new Response(
       JSON.stringify({
@@ -261,7 +304,13 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
           avg_flow_cny: Number(avgFlowCny.toFixed(2)),
           total_dca_cny: Number(totalDcaCny.toFixed(2)),
           flow_records: flows,
-          dca_records: dcaList
+          dca_records: dcaList,
+          cny_balance: Number(cnyBalance.toFixed(2)),
+          usd_balance: Number(usdBalance.toFixed(2)),
+          cny_net_flow: Number(cnyNetFlow.toFixed(2)),
+          usd_net_flow: Number(usdNetFlow.toFixed(2)),
+          cny_burn_months: cnyBurnMonths !== null ? Number(cnyBurnMonths.toFixed(1)) : null,
+          usd_burn_months: usdBurnMonths !== null ? Number(usdBurnMonths.toFixed(1)) : null
         }
       }),
       { headers: jsonHeaders }
