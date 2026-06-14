@@ -205,10 +205,10 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     let cnyBalance = 0;
     let usdBalance = 0;
     for (const row of results) {
-      const roleLower = (row.Role || "").toLowerCase();
+      const roleLower = (row.Role || "").trim().toLowerCase();
       const isCash = roleLower === "cash" || roleLower === "流动性" || roleLower === "现金";
       if (isCash) {
-        const symbolUpper = (row.symbol || "").toUpperCase();
+        const symbolUpper = (row.symbol || "").trim().toUpperCase();
         if (symbolUpper === "CNY") {
           cnyBalance += row.shares;
         } else if (symbolUpper === "USD") {
@@ -233,7 +233,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const dcaList = dcas.map((row) => {
       // DCA represents expenditures, implicitly negative. We treat its absolute value as the positive expenditure.
       const absAmount = Math.abs(row.amount);
-      const symbolUpper = (row.symbol || "").toUpperCase();
+      const symbolUpper = (row.symbol || "").trim().toUpperCase();
       const valueCnyRaw = symbolUpper === "USD" ? absAmount * usdToCny : absAmount;
       
       let monthlyAmount = valueCnyRaw;
@@ -268,7 +268,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
       if (symbolUpper === "USD") {
         totalUsdDca += monthlyAmountOriginal;
-      } else {
+      } else if (symbolUpper === "CNY") {
         totalCnyDca += monthlyAmountOriginal;
       }
       
