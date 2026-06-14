@@ -958,7 +958,7 @@
 <div id="expenseDetailsModal" class="modal-overlay">
     <div class="modal-card" style="max-width: 780px;">
         <div class="modal-header">
-            <h3 id="expenseModalTitle" class="modal-title">月度支出估算明细</h3>
+            <h3 id="expenseModalTitle" class="modal-title">流动性监控明细</h3>
             <button type="button" id="closeExpenseModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div class="modal-body" style="display: flex; flex-direction: column; gap: 24px;">
@@ -983,13 +983,13 @@
                 </div>
             </div>
             <div>
-                <h4 style="margin: 0 0 12px; color: var(--text-main); font-size: 1.05rem;">近12个月支出记录 (flow)</h4>
+                <h4 style="margin: 0 0 12px; color: var(--text-main); font-size: 1.05rem;">近12个月流动性记录 (flow)</h4>
                 <div class="modal-table-container">
                     <table class="stat-table">
                         <thead>
                             <tr>
                                 <th>月份</th>
-                                <th class="is-number">支出金额 (CNY)</th>
+                                <th class="is-number">流动性结余 (CNY)</th>
                             </tr>
                         </thead>
                         <tbody id="flowModalTableBody">
@@ -1134,11 +1134,28 @@
         toggleTableAmountsButton.classList.toggle("is-active", amountsVisible);
     }
 
+
+
     function formatCny(value) {
         return "CNY " + Number(value).toLocaleString("zh-CN", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    }
+
+    function formatLiquidity(value) {
+        const valNum = Number(value);
+        const absFormatted = Math.abs(valNum).toLocaleString("zh-CN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        if (valNum > 0) {
+            return "+CNY " + absFormatted + "/月";
+        } else if (valNum < 0) {
+            return "-CNY " + absFormatted + "/月";
+        } else {
+            return "CNY 0.00/月";
+        }
     }
 
     function escapeHtml(value) {
@@ -1160,12 +1177,10 @@
     }
 
     function renderExpenseModalTables() {
-        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
         const expenseTotal = latestExpenseData.total_cny || 0;
-        const percentage = totalPortfolioCNY > 0 ? ((expenseTotal / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
-        
-        const percentageDisplay = amountsVisible ? `${percentage}%` : "••••••";
-        expenseModalTitle.textContent = `月度支出估算明细 (占总资产 ${percentageDisplay})`;
+        const formattedLiquidityValue = formatLiquidity(expenseTotal);
+        const liquidityDisplay = amountsVisible ? formattedLiquidityValue : "••••••";
+        expenseModalTitle.textContent = `流动性监控明细 (估算月均净流向: ${liquidityDisplay})`;
 
         // Render DCA configs
         const dcaRecords = latestExpenseData.dca_records || [];
@@ -1197,8 +1212,8 @@
                 `;
             }).join("") + `
                 <tr class="total-row">
-                    <td colspan="4">合计折合月定投支出</td>
-                    <td class="is-number" style="color: #d97706;">${amountsVisible ? Number(latestExpenseData.total_dca_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
+                    <td colspan="4">合计折合月定投支出 (流出)</td>
+                    <td class="is-number" style="color: #d97706;">${amountsVisible ? "-¥" + Number(latestExpenseData.total_dca_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
                     <td></td>
                 </tr>
             `;
@@ -1209,40 +1224,51 @@
         if (!flowRecords.length) {
             flowModalTableBody.innerHTML = `
                 <tr>
-                    <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无支出记录数据</td>
+                    <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无近12个月流动性记录</td>
                 </tr>
             `;
         } else {
+            const avgVal = Number(latestExpenseData.avg_flow_cny);
+            const avgSign = avgVal > 0 ? "+" : "";
+            const avgFormatted = avgSign + avgVal.toLocaleString("zh-CN", { minimumFractionDigits: 2 });
+            
             flowModalTableBody.innerHTML = flowRecords.map(item => {
+                const val = Number(item.amount);
+                const sign = val > 0 ? "+" : "";
                 const amountDisplay = amountsVisible
-                    ? Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })
-                    : `<span class="amount-hidden" data-real-value="${Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}" aria-label="金额已隐藏">••••••</span>`;
+                    ? sign + val.toLocaleString("zh-CN", { minimumFractionDigits: 2 })
+                    : `<span class="amount-hidden" data-real-value="${sign + val.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}" aria-label="金额已隐藏">••••••</span>`;
 
                 return `
                     <tr>
                         <td><strong>${escapeHtml(item.period)}</strong></td>
-                        <td class="is-number">${amountDisplay}</td>
+                        <td class="is-number" style="color: ${val >= 0 ? '#0f766e' : '#f43f5e'}">${amountDisplay}</td>
                     </tr>
                 `;
             }).join("") + `
                 <tr class="total-row">
-                    <td>近 ${flowRecords.length} 个月平均月支出</td>
-                    <td class="is-number" style="color: #0f766e;">${amountsVisible ? Number(latestExpenseData.avg_flow_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
+                    <td>近 ${flowRecords.length} 个月平均结余 (流入/流出)</td>
+                    <td class="is-number" style="color: ${avgVal >= 0 ? '#0f766e' : '#f43f5e'};">${amountsVisible ? avgFormatted : "••••••"}</td>
                 </tr>
             `;
         }
     }
 
-    function renderExpensePanel(totalExpenseCny, avgFlowCny, totalDcaCny) {
+    function renderExpensePanel(totalLiquidityCny, avgFlowCny, totalDcaCny) {
         const container = document.getElementById("expensePanel");
         if (!container) return;
 
         const percentageDisplay = amountsVisible
-            ? formatCny(totalExpenseCny)
-            : `<span class="amount-hidden" data-real-value="${formatCny(totalExpenseCny)}" aria-label="金额已隐藏">••••••</span>`;
+            ? formatLiquidity(totalLiquidityCny)
+            : `<span class="amount-hidden" data-real-value="${formatLiquidity(totalLiquidityCny)}" aria-label="金额已隐藏">••••••</span>`;
 
-        const subAvgDisplay = amountsVisible ? `¥${Number(avgFlowCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}` : "••••••";
-        const subDcaDisplay = amountsVisible ? `¥${Number(totalDcaCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}` : "••••••";
+        let subAvgDisplay = "••••••";
+        let subDcaDisplay = "••••••";
+        if (amountsVisible) {
+            const formattedAvg = (avgFlowCny > 0 ? "+" : "") + Number(avgFlowCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+            subAvgDisplay = `¥${formattedAvg}`;
+            subDcaDisplay = `-¥${Number(totalDcaCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}`;
+        }
 
         container.innerHTML = `
             <div class="expense-content-wrapper">
@@ -1252,11 +1278,11 @@
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                     </svg>
                 </div>
-                <h3 class="expense-title">月支出估算 (CNY)</h3>
+                <h3 class="expense-title">流动性监控</h3>
                 <div class="expense-value">${percentageDisplay}</div>
                 <div style="font-size: 0.76rem; color: var(--text-muted); margin: 2px 0 6px; display: flex; gap: 8px;">
-                    <span>平均: ${subAvgDisplay}</span>
-                    <span>定投: ${subDcaDisplay}</span>
+                    <span>月均结余: ${subAvgDisplay}</span>
+                    <span>月均定投: ${subDcaDisplay}</span>
                 </div>
                 <div class="expense-hint">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1265,7 +1291,7 @@
                         <line x1="11" y1="8" x2="11" y2="14"></line>
                         <line x1="8" y1="11" x2="14" y2="11"></line>
                     </svg>
-                    点击查看支出与定投明细
+                    点击查看流动性与定投明细
                 </div>
             </div>
         `;

@@ -201,12 +201,12 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const stats_by_role = toSortedStats(roleStats);
     const stats_by_symbol = toSortedStats(symbolStats);
 
-    // Calculate Monthly Expenses
+    // Calculate Monthly Liquidity
     const flows = flowRows.results ?? [];
     // flow is monthly liquidity: negative means expense, positive means savings.
-    // Average expense over 12 months (or actual months): we sum up the negative values as positive numbers, and average them.
+    // Average liquidity over 12 months (or actual months): we calculate the true mathematical average.
     const avgFlowCny = flows.length > 0
-      ? flows.reduce((sum, row) => sum + (row.amount < 0 ? -row.amount : 0), 0) / flows.length
+      ? flows.reduce((sum, row) => sum + row.amount, 0) / flows.length
       : 0;
 
     const dcas = dcaRows.results ?? [];
@@ -243,7 +243,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       };
     });
 
-    const totalExpenseCny = avgFlowCny + totalDcaCny;
+    const netMonthlyLiquidity = avgFlowCny - totalDcaCny;
 
     return new Response(
       JSON.stringify({
@@ -257,7 +257,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         assets: assetsList,
         qdii: qdiiRows.results ?? [],
         expense: {
-          total_cny: Number(totalExpenseCny.toFixed(2)),
+          total_cny: Number(netMonthlyLiquidity.toFixed(2)),
           avg_flow_cny: Number(avgFlowCny.toFixed(2)),
           total_dca_cny: Number(totalDcaCny.toFixed(2)),
           flow_records: flows,
@@ -266,6 +266,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       }),
       { headers: jsonHeaders }
     );
+
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
 
