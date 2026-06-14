@@ -243,6 +243,108 @@
             color: var(--accent);
         }
 
+        .expense-panel {
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+            width: 100%;
+        }
+
+        .expense-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #f59e0b 0%, #eab308 100%);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .expense-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #fef8e8 100%);
+        }
+
+        .expense-panel:hover::before {
+            opacity: 1;
+        }
+
+        .expense-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .expense-icon-container {
+            margin-bottom: 10px;
+            color: #d97706;
+            background: #fef3c7;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .expense-panel:hover .expense-icon-container {
+            transform: scale(1.1);
+        }
+
+        .expense-title {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .expense-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #d97706;
+            letter-spacing: -0.02em;
+            margin: 8px 0 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .expense-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 999px;
+            transition: all 0.3s ease;
+        }
+
+        .expense-panel:hover .expense-hint {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
         .stat-table {
             width: 100%;
             border-collapse: collapse;
@@ -498,7 +600,7 @@
                 flex-direction: row;
             }
 
-            .qdii-panel, .risk-panel, .ai-panel {
+            .qdii-panel, .risk-panel, .ai-panel, .expense-panel {
                 flex: 1;
                 align-self: stretch;
             }
@@ -720,6 +822,9 @@
         </section>
 
         <div class="third-column-container">
+            <section class="chart-panel expense-panel" id="expensePanel">
+                <!-- Filled dynamically by JS -->
+            </section>
             <section class="chart-panel qdii-panel" id="qdiiPanel">
                 <div class="qdii-list" id="qdiiList"></div>
             </section>
@@ -849,6 +954,54 @@
     </div>
 </div>
 
+<!-- Modal for Monthly Expense Detail -->
+<div id="expenseDetailsModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 780px;">
+        <div class="modal-header">
+            <h3 id="expenseModalTitle" class="modal-title">月度支出估算明细</h3>
+            <button type="button" id="closeExpenseModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 24px;">
+            <div>
+                <h4 style="margin: 0 0 12px; color: var(--text-main); font-size: 1.05rem;">定投计划明细</h4>
+                <div class="modal-table-container">
+                    <table class="stat-table">
+                        <thead>
+                            <tr>
+                                <th>项目名称</th>
+                                <th>频次</th>
+                                <th class="is-number">定投金额</th>
+                                <th>币种</th>
+                                <th class="is-number">折合月支出 (CNY)</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dcaModalTableBody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 12px; color: var(--text-main); font-size: 1.05rem;">近12个月支出记录 (flow)</h4>
+                <div class="modal-table-container">
+                    <table class="stat-table">
+                        <thead>
+                            <tr>
+                                <th>月份</th>
+                                <th class="is-number">支出金额 (CNY)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flowModalTableBody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
@@ -949,6 +1102,21 @@
 
     let totalAiAmountRawValue = "0.00";
 
+    const expensePanel = document.getElementById("expensePanel");
+    const expenseDetailsModal = document.getElementById("expenseDetailsModal");
+    const closeExpenseModalBtn = document.getElementById("closeExpenseModalBtn");
+    const dcaModalTableBody = document.getElementById("dcaModalTableBody");
+    const flowModalTableBody = document.getElementById("flowModalTableBody");
+    const expenseModalTitle = document.getElementById("expenseModalTitle");
+
+    let latestExpenseData = {
+        total_cny: 0,
+        avg_flow_cny: 0,
+        total_dca_cny: 0,
+        flow_records: [],
+        dca_records: []
+    };
+
     const savePagePngButton = document.getElementById("savePagePng");
 
     function setCopyButtonState(label, copied) {
@@ -980,6 +1148,127 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function openExpenseDetailsModal() {
+        renderExpenseModalTables();
+        expenseDetailsModal.classList.add("show");
+    }
+
+    function closeExpenseDetailsModal() {
+        expenseDetailsModal.classList.remove("show");
+    }
+
+    function renderExpenseModalTables() {
+        const totalPortfolioCNY = Number(totalAmountRawValue) || latestAssets.reduce((sum, asset) => sum + Number(asset.value_cny || 0), 0);
+        const expenseTotal = latestExpenseData.total_cny || 0;
+        const percentage = totalPortfolioCNY > 0 ? ((expenseTotal / totalPortfolioCNY) * 100).toFixed(2) : "0.00";
+        
+        const percentageDisplay = amountsVisible ? `${percentage}%` : "••••••";
+        expenseModalTitle.textContent = `月度支出估算明细 (占总资产 ${percentageDisplay})`;
+
+        // Render DCA configs
+        const dcaRecords = latestExpenseData.dca_records || [];
+        if (!dcaRecords.length) {
+            dcaModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无定投计划数据</td>
+                </tr>
+            `;
+        } else {
+            dcaModalTableBody.innerHTML = dcaRecords.map(item => {
+                const amountDisplay = amountsVisible
+                    ? Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })
+                    : `<span class="amount-hidden" data-real-value="${Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}" aria-label="金额已隐藏">••••••</span>`;
+                
+                const monthlyDisplay = amountsVisible
+                    ? Number(item.monthly_amount_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 })
+                    : `<span class="amount-hidden" data-real-value="${Number(item.monthly_amount_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}" aria-label="金额已隐藏">••••••</span>`;
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(item.name)}</strong></td>
+                        <td>${escapeHtml(item.frequency)}</td>
+                        <td class="is-number">${amountDisplay}</td>
+                        <td>${escapeHtml(item.symbol)}</td>
+                        <td class="is-number" style="color: #d97706; font-weight: 600;">${monthlyDisplay}</td>
+                        <td style="color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.remarks)}">${escapeHtml(item.remarks)}</td>
+                    </tr>
+                `;
+            }).join("") + `
+                <tr class="total-row">
+                    <td colspan="4">合计折合月定投支出</td>
+                    <td class="is-number" style="color: #d97706;">${amountsVisible ? Number(latestExpenseData.total_dca_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        // Render Flow records
+        const flowRecords = latestExpenseData.flow_records || [];
+        if (!flowRecords.length) {
+            flowModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无支出记录数据</td>
+                </tr>
+            `;
+        } else {
+            flowModalTableBody.innerHTML = flowRecords.map(item => {
+                const amountDisplay = amountsVisible
+                    ? Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })
+                    : `<span class="amount-hidden" data-real-value="${Number(item.amount).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}" aria-label="金额已隐藏">••••••</span>`;
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(item.period)}</strong></td>
+                        <td class="is-number">${amountDisplay}</td>
+                    </tr>
+                `;
+            }).join("") + `
+                <tr class="total-row">
+                    <td>近 ${flowRecords.length} 个月平均月支出</td>
+                    <td class="is-number" style="color: #0f766e;">${amountsVisible ? Number(latestExpenseData.avg_flow_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
+                </tr>
+            `;
+        }
+    }
+
+    function renderExpensePanel(totalExpenseCny, avgFlowCny, totalDcaCny) {
+        const container = document.getElementById("expensePanel");
+        if (!container) return;
+
+        const percentageDisplay = amountsVisible
+            ? formatCny(totalExpenseCny)
+            : `<span class="amount-hidden" data-real-value="${formatCny(totalExpenseCny)}" aria-label="金额已隐藏">••••••</span>`;
+
+        const subAvgDisplay = amountsVisible ? `¥${Number(avgFlowCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}` : "••••••";
+        const subDcaDisplay = amountsVisible ? `¥${Number(totalDcaCny).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}` : "••••••";
+
+        container.innerHTML = `
+            <div class="expense-content-wrapper">
+                <div class="expense-icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                </div>
+                <h3 class="expense-title">月支出估算 (CNY)</h3>
+                <div class="expense-value">${percentageDisplay}</div>
+                <div style="font-size: 0.76rem; color: var(--text-muted); margin: 2px 0 6px; display: flex; gap: 8px;">
+                    <span>平均: ${subAvgDisplay}</span>
+                    <span>定投: ${subDcaDisplay}</span>
+                </div>
+                <div class="expense-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    点击查看支出与定投明细
+                </div>
+            </div>
+        `;
     }
 
     function openDetailsModal(filterType, filterValue) {
@@ -1361,6 +1650,20 @@
         aiPanel.addEventListener("click", openAiDetailsModal);
     }
 
+    if (expensePanel) {
+        expensePanel.addEventListener("click", openExpenseDetailsModal);
+    }
+
+    if (closeExpenseModalBtn) {
+        closeExpenseModalBtn.addEventListener("click", closeExpenseDetailsModal);
+    }
+
+    expenseDetailsModal.addEventListener("click", (event) => {
+        if (event.target === expenseDetailsModal) {
+            closeExpenseDetailsModal();
+        }
+    });
+
     window.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
             if (roleDetailsModal.classList.contains("show")) {
@@ -1374,6 +1677,9 @@
             }
             if (aiDetailsModal.classList.contains("show")) {
                 closeAiDetailsModal();
+            }
+            if (expenseDetailsModal.classList.contains("show")) {
+                closeExpenseDetailsModal();
             }
         }
     });
@@ -1646,6 +1952,13 @@
             latestSymbolStats = data.stats_by_symbol || [];
             latestQdiiRows = data.qdii || [];
             latestAssets = data.assets || [];
+            latestExpenseData = data.expense || {
+                total_cny: 0,
+                avg_flow_cny: 0,
+                total_dca_cny: 0,
+                flow_records: [],
+                dca_records: []
+            };
             renderTotalAmount();
             copyButton.disabled = false;
 
@@ -1656,6 +1969,7 @@
             renderQdiiList(latestQdiiRows);
             renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
             renderAiPanel(totalAiAmountRawValue, totalAmountRawValue);
+            renderExpensePanel(latestExpenseData.total_cny, latestExpenseData.avg_flow_cny, latestExpenseData.total_dca_cny);
             savePagePngButton.disabled = false;
         } catch (error) {
             console.error("Failed to load dashboard data", error);
@@ -1673,6 +1987,7 @@
         renderStatTable("symbolStatsTable", latestSymbolStats, "\u5e01\u79cd");
         renderRiskPanel(totalRiskAmountRawValue, totalAmountRawValue);
         renderAiPanel(totalAiAmountRawValue, totalAmountRawValue);
+        renderExpensePanel(latestExpenseData.total_cny, latestExpenseData.avg_flow_cny, latestExpenseData.total_dca_cny);
         if (activeFilterType && activeFilterValue) {
             renderDetailsTable();
         }
@@ -1681,6 +1996,9 @@
         }
         if (aiDetailsModal.classList.contains("show")) {
             renderAiModalTable();
+        }
+        if (expenseDetailsModal.classList.contains("show")) {
+            renderExpenseModalTables();
         }
     }
 
@@ -1726,7 +2044,7 @@
                     });
 
                     // 3. Remove background gradient and text clipping for html2canvas compatibility
-                    const gradientValues = clonedDoc.querySelectorAll(".risk-value, .ai-value, .qdii-value");
+                    const gradientValues = clonedDoc.querySelectorAll(".risk-value, .ai-value, .qdii-value, .expense-value");
                     gradientValues.forEach((el) => {
                         el.style.background = "none";
                         el.style.webkitTextFillColor = "initial";
@@ -1736,6 +2054,8 @@
                             el.style.color = "#6366f1";
                         } else if (el.classList.contains("qdii-value")) {
                             el.style.color = "#0f766e";
+                        } else if (el.classList.contains("expense-value")) {
+                            el.style.color = "#d97706";
                         }
                     });
                 }

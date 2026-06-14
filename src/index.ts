@@ -22,6 +22,19 @@ interface QdiiRow {
   updated_at: string;
 }
 
+interface DcaRow {
+  name: string;
+  frequency: string;
+  symbol: string;
+  amount: number;
+  remarks: string;
+}
+
+interface FlowRow {
+  period: string;
+  amount: number;
+}
+
 const jsonHeaders = {
   "Content-Type": "application/json",
 };
@@ -95,7 +108,7 @@ async function fetchUsdToCnyRate(): Promise<number> {
 
 async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
-    const [assetRows, qdiiRows, tagRows] = await Promise.all([
+    const [assetRows, qdiiRows, tagRows, dcaRows, flowRows] = await Promise.all([
       env.DB.prepare(
         "SELECT * FROM assets WHERE shares > 0"
       ).all<AssetRow>(),
@@ -105,6 +118,12 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       env.DB.prepare(
         "SELECT name, label FROM tags"
       ).all<{ name: string; label: string }>(),
+      env.DB.prepare(
+        "SELECT name, frequency, symbol, amount, remarks FROM dca"
+      ).all<DcaRow>(),
+      env.DB.prepare(
+        "SELECT period, amount FROM flow ORDER BY period DESC LIMIT 12"
+      ).all<FlowRow>(),
     ]);
 
     const results = assetRows.results ?? [];
@@ -182,6 +201,46 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const stats_by_role = toSortedStats(roleStats);
     const stats_by_symbol = toSortedStats(symbolStats);
 
+    // Calculate Monthly Expenses
+    const flows = flowRows.results ?? [];
+    const avgFlowCny = flows.length > 0
+      ? flows.reduce((sum, row) => sum + row.amount, 0) / flows.length
+      : 0;
+
+    const dcas = dcaRows.results ?? [];
+    let totalDcaCny = 0;
+    const dcaList = dcas.map((row) => {
+      const valueCnyRaw = row.symbol === "USD" ? row.amount * usdToCny : row.amount;
+      
+      let monthlyAmount = valueCnyRaw;
+      const freq = (row.frequency || "").trim();
+      if (freq === "周" || freq === "每周" || freq === "weekly") {
+        monthlyAmount = valueCnyRaw * (52 / 12);
+      } else if (freq === "双周" || freq === "每双周" || freq === "每两周" || freq === "biweekly") {
+        monthlyAmount = valueCnyRaw * (26 / 12);
+      } else if (freq === "日" || freq === "每天" || freq === "每日" || freq === "daily") {
+        monthlyAmount = valueCnyRaw * 30.4375;
+      } else if (freq === "季" || freq === "每季" || freq === "季度" || freq === "quarterly") {
+        monthlyAmount = valueCnyRaw / 3;
+      } else if (freq === "年" || freq === "每年" || freq === "年度" || freq === "yearly") {
+        monthlyAmount = valueCnyRaw / 12;
+      }
+      
+      totalDcaCny += monthlyAmount;
+      
+      return {
+        name: row.name,
+        frequency: row.frequency,
+        symbol: row.symbol,
+        amount: row.amount,
+        remarks: row.remarks || "",
+        value_cny: Number(valueCnyRaw.toFixed(2)),
+        monthly_amount_cny: Number(monthlyAmount.toFixed(2))
+      };
+    });
+
+    const totalExpenseCny = avgFlowCny + totalDcaCny;
+
     return new Response(
       JSON.stringify({
         total_cny: Number(totalAssetCNY.toFixed(2)),
@@ -193,6 +252,13 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         stats_by_symbol,
         assets: assetsList,
         qdii: qdiiRows.results ?? [],
+        expense: {
+          total_cny: Number(totalExpenseCny.toFixed(2)),
+          avg_flow_cny: Number(avgFlowCny.toFixed(2)),
+          total_dca_cny: Number(totalDcaCny.toFixed(2)),
+          flow_records: flows,
+          dca_records: dcaList
+        }
       }),
       { headers: jsonHeaders }
     );
