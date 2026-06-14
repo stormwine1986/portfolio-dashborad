@@ -203,14 +203,18 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
 
     // Calculate Monthly Expenses
     const flows = flowRows.results ?? [];
+    // flow is monthly liquidity: negative means expense, positive means savings.
+    // Average expense over 12 months (or actual months): we sum up the negative values as positive numbers, and average them.
     const avgFlowCny = flows.length > 0
-      ? flows.reduce((sum, row) => sum + row.amount, 0) / flows.length
+      ? flows.reduce((sum, row) => sum + (row.amount < 0 ? -row.amount : 0), 0) / flows.length
       : 0;
 
     const dcas = dcaRows.results ?? [];
     let totalDcaCny = 0;
     const dcaList = dcas.map((row) => {
-      const valueCnyRaw = row.symbol === "USD" ? row.amount * usdToCny : row.amount;
+      // DCA represents expenditures, implicitly negative. We treat its absolute value as the positive expenditure.
+      const absAmount = Math.abs(row.amount);
+      const valueCnyRaw = row.symbol === "USD" ? absAmount * usdToCny : absAmount;
       
       let monthlyAmount = valueCnyRaw;
       const freq = (row.frequency || "").trim();
@@ -232,7 +236,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         name: row.name,
         frequency: row.frequency,
         symbol: row.symbol,
-        amount: row.amount,
+        amount: row.amount, // Keep original representation
         remarks: row.remarks || "",
         value_cny: Number(valueCnyRaw.toFixed(2)),
         monthly_amount_cny: Number(monthlyAmount.toFixed(2))
