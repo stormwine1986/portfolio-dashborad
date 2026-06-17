@@ -1202,11 +1202,11 @@
             maximumFractionDigits: 2
         });
         if (valNum > 0) {
-            return "+CNY " + absFormatted + "/月";
+            return "+" + absFormatted + " CNY/月";
         } else if (valNum < 0) {
-            return "-CNY " + absFormatted + "/月";
+            return "-" + absFormatted + " CNY/月";
         } else {
-            return "CNY 0.00/月";
+            return "0.00 CNY/月";
         }
     }
 
