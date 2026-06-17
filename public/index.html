@@ -1045,7 +1045,6 @@
                                 <th class="is-number">定投金额</th>
                                 <th>币种</th>
                                 <th class="is-number">折合月支出 (CNY)</th>
-                                <th>备注</th>
                             </tr>
                         </thead>
                         <tbody id="dcaModalTableBody">
@@ -1219,7 +1218,7 @@
         if (!dcaRecords.length) {
             dcaModalTableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无定投计划数据</td>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无定投计划数据</td>
                 </tr>
             `;
         } else {
@@ -1239,14 +1238,12 @@
                         <td class="is-number">${amountDisplay}</td>
                         <td>${escapeHtml(item.symbol)}</td>
                         <td class="is-number" style="color: #d97706; font-weight: 600;">${monthlyDisplay}</td>
-                        <td style="color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.remarks)}">${escapeHtml(item.remarks)}</td>
                     </tr>
                 `;
             }).join("") + `
                 <tr class="total-row">
                     <td colspan="4">合计折合月定投支出 (流出)</td>
                     <td class="is-number" style="color: #d97706;">${amountsVisible ? "-¥" + Number(latestExpenseData.total_dca_cny).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
-                    <td></td>
                 </tr>
             `;
         }
