@@ -2377,15 +2377,37 @@
                                 simNonRiskValue += dcaCny;
                             }
                         } else {
-                            const actualDcaCny = simUsdCash * usdRate;
+                            // USD cash is insufficient. Use all remaining USD cash, and fund the rest from CNY cash!
+                            const remainingUsdCnyVal = simUsdCash * usdRate;
                             if (isRisk) {
-                                simRiskValue += actualDcaCny;
+                                simRiskValue += remainingUsdCnyVal;
                             } else {
-                                simNonRiskValue += actualDcaCny;
+                                simNonRiskValue += remainingUsdCnyVal;
                             }
                             simUsdCash = 0;
                             if (usdDepletedMonth === -1) {
                                 usdDepletedMonth = m;
+                            }
+                            
+                            // Deficit to be funded by CNY cash
+                            const deficitCny = dcaCny - remainingUsdCnyVal;
+                            if (simCnyCash >= deficitCny) {
+                                simCnyCash -= deficitCny;
+                                if (isRisk) {
+                                    simRiskValue += deficitCny;
+                                } else {
+                                    simNonRiskValue += deficitCny;
+                                }
+                            } else {
+                                if (isRisk) {
+                                    simRiskValue += simCnyCash;
+                                } else {
+                                    simNonRiskValue += simCnyCash;
+                                }
+                                simCnyCash = 0;
+                                if (cnyDepletedMonth === -1) {
+                                    cnyDepletedMonth = m;
+                                }
                             }
                         }
                     } else {
