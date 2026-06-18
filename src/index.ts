@@ -9,6 +9,8 @@ interface AssetRow {
   symbol: string;
   Role: string;
   name?: string;
+  interest_rate?: number;
+  remarks?: string;
 }
 
 interface ChartStat {
@@ -201,21 +203,60 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
     const stats_by_role = toSortedStats(roleStats);
     const stats_by_symbol = toSortedStats(symbolStats);
 
-    // Calculate currency balances from assets list (filtering by cash role and using shares directly to get pure currency amounts)
+    // Calculate currency balances and interest-bearing asset cash flows
     let cnyBalance = 0;
     let usdBalance = 0;
+    let totalInterestCny = 0;
+    let monthlyInterestCny = 0;
+    let monthlyInterestUsd = 0;
+    const fixedIncomeList: any[] = [];
+
     for (const row of results) {
       const roleLower = (row.Role || "").trim().toLowerCase();
       const isCash = roleLower === "cash" || roleLower === "流动性" || roleLower === "现金";
+      const symbolUpper = (row.symbol || "").trim().toUpperCase();
+
       if (isCash) {
-        const symbolUpper = (row.symbol || "").trim().toUpperCase();
         if (symbolUpper === "CNY") {
           cnyBalance += row.shares;
         } else if (symbolUpper === "USD") {
           usdBalance += row.shares;
         }
       }
+
+      // Calculate interest income if interest_rate is specified and > 0
+      if (typeof row.interest_rate === "number" && row.interest_rate > 0) {
+        const unitPrice =
+          row.symbol === "BTC" && btcPriceCny !== undefined
+            ? btcPriceCny
+            : row.market_price;
+        const originalValue = row.shares * unitPrice;
+        const valueInCNY =
+          row.symbol === "USD" ? originalValue * usdToCny : originalValue;
+
+        const interestCnyMonthly = (valueInCNY * row.interest_rate) / 1200;
+        const interestOriginalMonthly = (originalValue * row.interest_rate) / 1200;
+
+        totalInterestCny += interestCnyMonthly;
+
+        if (symbolUpper === "USD") {
+          monthlyInterestUsd += interestOriginalMonthly;
+        } else if (symbolUpper === "CNY") {
+          monthlyInterestCny += interestOriginalMonthly;
+        }
+
+        fixedIncomeList.push({
+          name: row.name || row.symbol,
+          symbol: row.symbol,
+          value_cny: Number(valueInCNY.toFixed(2)),
+          interest_rate: row.interest_rate,
+          monthly_inflow_cny: Number(interestCnyMonthly.toFixed(2)),
+          remarks: row.remarks || ""
+        });
+      }
     }
+
+    fixedIncomeList.sort((a, b) => b.monthly_inflow_cny - a.monthly_inflow_cny);
 
     // Calculate Monthly Liquidity
     const flows = flowRows.results ?? [];
@@ -283,16 +324,16 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       };
     });
 
-    const netMonthlyLiquidity = avgFlowCny - totalDcaCny;
+    const netMonthlyLiquidity = avgFlowCny + totalInterestCny - totalDcaCny;
 
     // Calculate burn rates (inflow/outflow)
-    // CNY net monthly flow = historical flow (CNY) - monthly CNY DCA
-    const cnyNetFlow = avgFlowCny - totalCnyDca;
+    // CNY net monthly flow = historical flow (CNY) + interest (CNY) - monthly CNY DCA
+    const cnyNetFlow = avgFlowCny + monthlyInterestCny - totalCnyDca;
     const cnyBurnMonths = cnyNetFlow < 0 ? (cnyBalance / Math.abs(cnyNetFlow)) : null;
 
-    // USD net monthly flow = - monthly USD DCA (since no USD historical inflow is recorded)
-    const usdNetFlow = -totalUsdDca;
-    const usdBurnMonths = totalUsdDca > 0 ? (usdBalance / totalUsdDca) : null;
+    // USD net monthly flow = interest (USD) - monthly USD DCA
+    const usdNetFlow = monthlyInterestUsd - totalUsdDca;
+    const usdBurnMonths = usdNetFlow < 0 ? (usdBalance / Math.abs(usdNetFlow)) : null;
 
     return new Response(
       JSON.stringify({
@@ -316,7 +357,9 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
           cny_net_flow: Number(cnyNetFlow.toFixed(2)),
           usd_net_flow: Number(usdNetFlow.toFixed(2)),
           cny_burn_months: cnyBurnMonths !== null ? Number(cnyBurnMonths.toFixed(1)) : null,
-          usd_burn_months: usdBurnMonths !== null ? Number(usdBurnMonths.toFixed(1)) : null
+          usd_burn_months: usdBurnMonths !== null ? Number(usdBurnMonths.toFixed(1)) : null,
+          total_interest_cny: Number(totalInterestCny.toFixed(2)),
+          fixed_income_records: fixedIncomeList
         }
       }),
       { headers: jsonHeaders }
