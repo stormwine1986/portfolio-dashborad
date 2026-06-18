@@ -2432,25 +2432,13 @@
         
         // 2. Render UI Stats
         let liqText = "安全";
-        let liqSub = "现金储备充足";
+        let liqSub = "CNY 现金储备充足";
         let liqClass = "text-green";
         
-        if (totalDepletedMonth !== -1) {
+        if (cnyDepletedMonth !== -1) {
             liqText = "枯竭";
-            liqSub = `整体资金在第 ${totalDepletedMonth} 个月耗尽`;
+            liqSub = `CNY 现金在第 ${cnyDepletedMonth} 个月耗尽`;
             liqClass = "text-red";
-        } else if (cnyDepletedMonth !== -1 && usdDepletedMonth !== -1) {
-            liqText = "警告";
-            liqSub = `CNY第 ${cnyDepletedMonth} 月，USD第 ${usdDepletedMonth} 月耗尽`;
-            liqClass = "text-orange";
-        } else if (cnyDepletedMonth !== -1) {
-            liqText = "警告";
-            liqSub = `CNY现金在第 ${cnyDepletedMonth} 个月耗尽`;
-            liqClass = "text-orange";
-        } else if (usdDepletedMonth !== -1) {
-            liqText = "警告";
-            liqSub = `USD现金在第 ${usdDepletedMonth} 个月耗尽`;
-            liqClass = "text-orange";
         }
         
         stressLiquidityResult.textContent = liqText;
@@ -2473,7 +2461,7 @@
             • 初始风险头寸: CNY ${initialRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始非风险资产: CNY ${initialNonRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始现金: CNY ${initialTotalCash.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
             • 模拟后风险头寸: CNY ${simRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 模拟后非风险资产: CNY ${simNonRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 最终现金: CNY ${(finalCnyCash + finalUsdCash * usdRate).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
             • 期间月度收入注入总额: CNY ${(monthlyInflow * monthsCount).toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 期间计划定投流出总额: CNY ${totalInvested.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
-            • <small>说明: 测试模拟了投资组合中<strong>风险资产（风险头寸）</strong>连续遭遇下跌的情况，非风险资产保持不变，现金仅受每月定投支出和现金收入流入影响。</small>
+            • <small>说明: 测试模拟了投资组合中<strong>风险资产（风险头寸）</strong>连续遭遇下跌的情况，非风险资产保持不变，且流动性评估仅针对 CNY 现金是否枯竭。</small>
         `;
         
         // 3. Render / Update Chart
