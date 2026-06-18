@@ -2316,11 +2316,19 @@
         const initialUsdCash = Number(latestExpenseData.usd_balance || 0);
         
         const nonCashAssets = latestAssets.filter(asset => !isCashAsset(asset));
-        const initialPortfolioValue = nonCashAssets.reduce((sum, asset) => sum + asset.value_cny, 0);
+        
+        // Split into risk assets and non-risk assets
+        const riskAssets = nonCashAssets.filter(asset => asset.is_risk);
+        const nonRiskAssets = nonCashAssets.filter(asset => !asset.is_risk);
+        
+        const initialRiskValue = riskAssets.reduce((sum, asset) => sum + asset.value_cny, 0);
+        const initialNonRiskValue = nonRiskAssets.reduce((sum, asset) => sum + asset.value_cny, 0);
+        const initialPortfolioValue = initialRiskValue + initialNonRiskValue;
         
         let simCnyCash = initialCnyCash;
         let simUsdCash = initialUsdCash;
-        let simPortfolioValue = initialPortfolioValue;
+        let simRiskValue = initialRiskValue;
+        let simNonRiskValue = initialNonRiskValue;
         
         let cnyDepletedMonth = -1;
         let usdDepletedMonth = -1;
@@ -2333,9 +2341,15 @@
         
         const monthlyMultiplier = Math.pow(1 - dropRate, 1 / 12);
         
+        // Helper to check if a DCA item is a risk asset based on its name matching an existing risk asset
+        function isRiskDca(dcaName) {
+            const matchingAsset = latestAssets.find(asset => (asset.name || asset.symbol) === dcaName);
+            return matchingAsset ? matchingAsset.is_risk : true; // default to true if not found, as most investments are risk assets
+        }
+        
         for (let m = 1; m <= monthsCount; m++) {
-            // Apply market drop
-            simPortfolioValue = simPortfolioValue * monthlyMultiplier;
+            // Apply market drop ONLY to risk assets (风险头寸)
+            simRiskValue = simRiskValue * monthlyMultiplier;
             
             // Add monthly inflow
             simCnyCash += monthlyInflow;
@@ -2345,14 +2359,24 @@
                 for (const dca of latestExpenseData.dca_records) {
                     const dcaCny = dca.monthly_amount_cny;
                     const symbol = (dca.symbol || "").trim().toUpperCase();
+                    const isRisk = isRiskDca(dca.name);
                     
                     if (symbol === "USD") {
                         const dcaUsd = dcaCny / usdRate;
                         if (simUsdCash >= dcaUsd) {
                             simUsdCash -= dcaUsd;
-                            simPortfolioValue += dcaCny;
+                            if (isRisk) {
+                                simRiskValue += dcaCny;
+                            } else {
+                                simNonRiskValue += dcaCny;
+                            }
                         } else {
-                            simPortfolioValue += simUsdCash * usdRate;
+                            const actualDcaCny = simUsdCash * usdRate;
+                            if (isRisk) {
+                                simRiskValue += actualDcaCny;
+                            } else {
+                                simNonRiskValue += actualDcaCny;
+                            }
                             simUsdCash = 0;
                             if (usdDepletedMonth === -1) {
                                 usdDepletedMonth = m;
@@ -2361,9 +2385,18 @@
                     } else {
                         if (simCnyCash >= dcaCny) {
                             simCnyCash -= dcaCny;
-                            simPortfolioValue += dcaCny;
+                            if (isRisk) {
+                                simRiskValue += dcaCny;
+                            } else {
+                                simNonRiskValue += dcaCny;
+                            }
                         } else {
-                            simPortfolioValue += simCnyCash;
+                            const actualDcaCny = simCnyCash;
+                            if (isRisk) {
+                                simRiskValue += actualDcaCny;
+                            } else {
+                                simNonRiskValue += actualDcaCny;
+                            }
                             simCnyCash = 0;
                             if (cnyDepletedMonth === -1) {
                                 cnyDepletedMonth = m;
@@ -2379,19 +2412,20 @@
                 totalDepletedMonth = m;
             }
             
+            const currentPortfolioValue = simRiskValue + simNonRiskValue;
+            
             labels.push(`第 ${m} 月`);
             cashHistory.push(currentTotalCash);
-            portfolioHistory.push(simPortfolioValue);
-            totalHistory.push(currentTotalCash + simPortfolioValue);
+            portfolioHistory.push(currentPortfolioValue);
+            totalHistory.push(currentTotalCash + currentPortfolioValue);
         }
         
         const finalCnyCash = simCnyCash;
         const finalUsdCash = simUsdCash;
-        const finalPortfolioValue = simPortfolioValue;
         
         const initialTotalCash = initialCnyCash + initialUsdCash * usdRate;
         const initialTotal = initialTotalCash + initialPortfolioValue;
-        const finalTotal = (finalCnyCash + finalUsdCash * usdRate) + finalPortfolioValue;
+        const finalTotal = (finalCnyCash + finalUsdCash * usdRate) + simRiskValue + simNonRiskValue;
         
         const totalChange = finalTotal - initialTotal;
         const drawdownPct = initialTotal > 0 ? (totalChange / initialTotal) * 100 : 0;
@@ -2436,10 +2470,10 @@
         
         stressDetailsLog.innerHTML = `
             <strong>压力测试细节 log:</strong><br>
-            • 初始投资组合: CNY ${initialPortfolioValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始现金: CNY ${initialTotalCash.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
-            • 模拟三年后投资组合: CNY ${finalPortfolioValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 最终现金: CNY ${(finalCnyCash + finalUsdCash * usdRate).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
+            • 初始风险头寸: CNY ${initialRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始非风险资产: CNY ${initialNonRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始现金: CNY ${initialTotalCash.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
+            • 模拟后风险头寸: CNY ${simRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 模拟后非风险资产: CNY ${simNonRiskValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 最终现金: CNY ${(finalCnyCash + finalUsdCash * usdRate).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
             • 期间月度收入注入总额: CNY ${(monthlyInflow * monthsCount).toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 期间计划定投流出总额: CNY ${totalInvested.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
-            • <small>说明: 测试模拟了投资组合中非现金资产连续遭遇下跌的情况，现金仅受每月定投支出和现金收入流入影响。</small>
+            • <small>说明: 测试模拟了投资组合中<strong>风险资产（风险头寸）</strong>连续遭遇下跌的情况，非风险资产保持不变，现金仅受每月定投支出和现金收入流入影响。</small>
         `;
         
         // 3. Render / Update Chart
