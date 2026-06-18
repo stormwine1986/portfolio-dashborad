@@ -1191,9 +1191,9 @@
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
-                        <label for="stressCashInflow" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">月度收入现金流入 (CNY)</label>
-                        <input type="number" id="stressCashInflow" min="0" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
-                        <small style="color: var(--text-muted); font-size: 0.72rem; line-height: 1.2;">系统默认预填历史平均结余</small>
+                        <label for="stressCashInflow" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">月度收支结余 / 现金流入 (CNY)</label>
+                        <input type="number" id="stressCashInflow" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                        <small style="color: var(--text-muted); font-size: 0.72rem; line-height: 1.2;">默认预填历史平均结余，输入负值可模拟纯支出/日常开销</small>
                     </div>
                 </div>
                 
@@ -2288,7 +2288,7 @@
 
     function openStressTestModal() {
         // Set default cash inflow to latest average flow
-        stressCashInflow.value = Math.max(0, Math.round(latestExpenseData.avg_flow_cny || 0));
+        stressCashInflow.value = Math.round(latestExpenseData.avg_flow_cny || 0);
         stressYearsInput.value = 3;
         stressDropRange.value = 50;
         stressDropVal.textContent = "50%";
