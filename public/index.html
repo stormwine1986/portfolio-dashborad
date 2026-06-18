@@ -1185,9 +1185,12 @@
                         </div>
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-                        <input type="checkbox" id="stressMaintainDca" checked style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);">
-                        <label for="stressMaintainDca" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); cursor: pointer; user-select: none;">维持定投计划</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="stressMaintainDca" checked style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);">
+                            <label for="stressMaintainDca" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); cursor: pointer; user-select: none;">维持定投计划</label>
+                        </div>
+                        <span id="stressDcaVal" style="font-size: 0.82rem; color: #d97706; font-weight: 600;">月定投: ¥0</span>
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
@@ -2293,6 +2296,9 @@
         stressDropRange.value = 50;
         stressDropVal.textContent = "50%";
         stressMaintainDca.checked = true;
+        
+        const dcaTotal = latestExpenseData.total_dca_cny || 0;
+        document.getElementById("stressDcaVal").textContent = `月定投: ¥${Math.round(dcaTotal).toLocaleString("zh-CN")}`;
         
         runStressSimulation();
         stressTestModal.classList.add("show");
