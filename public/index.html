@@ -862,6 +862,91 @@
             background: #f8fafc !important;
             border-top: 2px solid #eef2f7 !important;
         }
+
+        /* Stress Test Styles */
+        .stress-layout {
+            display: flex;
+            gap: 24px;
+        }
+        .stress-sidebar {
+            flex: 0 0 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #eef2f7;
+            box-sizing: border-box;
+        }
+        .stress-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0;
+        }
+        .stress-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .stress-card-stat {
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+        .stress-card-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .stress-card-value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .stress-card-sub {
+            font-size: 0.72rem;
+            margin-top: 2px;
+        }
+        .text-green {
+            color: #0f766e !important;
+        }
+        .text-red {
+            color: #f43f5e !important;
+        }
+        .text-orange {
+            color: #d97706 !important;
+        }
+        .stress-chart-container {
+            position: relative;
+            height: 260px;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+            border-radius: 12px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        @media (max-width: 768px) {
+            .stress-layout {
+                flex-direction: column;
+            }
+            .stress-sidebar {
+                flex: 1 0 auto;
+                width: 100%;
+            }
+            .stress-cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -871,6 +956,7 @@
         <div class="total-amount">
             <span id="totalAmount">CNY 0.00</span>
             <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
+            <button type="button" class="icon-button" id="stressTestBtn" aria-label="压力测试" title="压力测试" disabled></button>
         </div>
     </div>
 
@@ -1073,6 +1159,80 @@
     </div>
 </div>
 
+<!-- Modal for Stress Test -->
+<div id="stressTestModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 850px; width: 95%;">
+        <div class="modal-header">
+            <h3 class="modal-title">压力测试面板</h3>
+            <button type="button" id="closeStressModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">
+            <div class="stress-layout">
+                <!-- Parameters Sidebar -->
+                <div class="stress-sidebar">
+                    <h4 style="margin: 0 0 10px; color: var(--text-main); font-size: 1rem;">参数设置</h4>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="stressYears" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">模拟时长 (1-10年)</label>
+                        <input type="number" id="stressYears" min="1" max="10" value="3" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+                        <label for="stressDropRange" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">资产年下跌幅度</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="range" id="stressDropRange" min="0" max="100" value="50" style="flex: 1; accent-color: var(--accent);">
+                            <span id="stressDropVal" style="font-weight: 600; font-size: 0.9rem; min-width: 40px; text-align: right;">50%</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+                        <input type="checkbox" id="stressMaintainDca" checked style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);">
+                        <label for="stressMaintainDca" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); cursor: pointer; user-select: none;">维持定投计划</label>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+                        <label for="stressCashInflow" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">月度收入现金流入 (CNY)</label>
+                        <input type="number" id="stressCashInflow" min="0" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                        <small style="color: var(--text-muted); font-size: 0.72rem; line-height: 1.2;">系统默认预填历史平均结余</small>
+                    </div>
+                </div>
+                
+                <!-- Main Results Panel -->
+                <div class="stress-main">
+                    <!-- Cards Grid -->
+                    <div class="stress-cards-grid">
+                        <div class="stress-card-stat">
+                            <span class="stress-card-label">流动性评估</span>
+                            <div id="stressLiquidityResult" class="stress-card-value text-green">安全</div>
+                            <span id="stressLiquiditySub" class="stress-card-sub text-muted">现金储备充足</span>
+                        </div>
+                        <div class="stress-card-stat">
+                            <span class="stress-card-label">总资产变动 / 回撤</span>
+                            <div id="stressDrawdownResult" class="stress-card-value text-red">-0.00%</div>
+                            <span id="stressDrawdownSub" class="stress-card-sub text-muted">-¥0.00</span>
+                        </div>
+                        <div class="stress-card-stat">
+                            <span class="stress-card-label">模拟后总资产</span>
+                            <div id="stressFinalAssetsResult" class="stress-card-value">¥0.00</div>
+                            <span id="stressFinalAssetsSub" class="stress-card-sub text-muted">初始 ¥0.00</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart Container -->
+                    <div class="stress-chart-container">
+                        <canvas id="stressChart"></canvas>
+                    </div>
+                    
+                    <!-- Simulation Explainer / Info -->
+                    <div id="stressDetailsLog" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid #eef2f7; padding-top: 10px;">
+                        <!-- Explanatory note filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
@@ -1087,6 +1247,11 @@
         check: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M20 6 9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `,
+        stress: `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
             </svg>
         `
     };
@@ -1153,6 +1318,29 @@
         flow_records: [],
         dca_records: []
     };
+
+    let latestUsdRate = 6.8;
+
+    // Stress Test DOM Elements
+    const stressTestBtn = document.getElementById("stressTestBtn");
+    const stressTestModal = document.getElementById("stressTestModal");
+    const closeStressModalBtn = document.getElementById("closeStressModalBtn");
+
+    const stressYearsInput = document.getElementById("stressYears");
+    const stressDropRange = document.getElementById("stressDropRange");
+    const stressDropVal = document.getElementById("stressDropVal");
+    const stressMaintainDca = document.getElementById("stressMaintainDca");
+    const stressCashInflow = document.getElementById("stressCashInflow");
+
+    const stressLiquidityResult = document.getElementById("stressLiquidityResult");
+    const stressLiquiditySub = document.getElementById("stressLiquiditySub");
+    const stressDrawdownResult = document.getElementById("stressDrawdownResult");
+    const stressDrawdownSub = document.getElementById("stressDrawdownSub");
+    const stressFinalAssetsResult = document.getElementById("stressFinalAssetsResult");
+    const stressFinalAssetsSub = document.getElementById("stressFinalAssetsSub");
+    const stressDetailsLog = document.getElementById("stressDetailsLog");
+
+    let stressChartInstance = null;
 
 
 
@@ -1786,6 +1974,9 @@
             if (expenseDetailsModal.classList.contains("show")) {
                 closeExpenseDetailsModal();
             }
+            if (stressTestModal.classList.contains("show")) {
+                closeStressTestModal();
+            }
         }
     });
 
@@ -2051,6 +2242,7 @@
             const data = await response.json();
 
             totalAmountRawValue = Number(data.total_cny).toFixed(2);
+            latestUsdRate = data.usd_rate || 6.8;
             totalRiskAmountRawValue = Number(data.total_risk_cny || 0).toFixed(2);
             totalAiAmountRawValue = Number(data.total_ai_cny || 0).toFixed(2);
             latestRoleStats = data.stats_by_role || [];
@@ -2066,6 +2258,7 @@
             };
             renderTotalAmount();
             copyButton.disabled = false;
+            stressTestBtn.disabled = false;
 
             renderPieChart("rolePieChart", latestRoleStats);
             renderPieChart("symbolPieChart", latestSymbolStats);
@@ -2079,6 +2272,7 @@
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
             copyButton.disabled = true;
+            stressTestBtn.disabled = true;
         }
     }
 
@@ -2086,6 +2280,285 @@
 
 
 
+    // Stress Test Functions & Listeners
+    function isCashAsset(asset) {
+        const roleLower = (asset.role || "").trim().toLowerCase();
+        return roleLower === "cash" || roleLower === "流动性" || roleLower === "现金";
+    }
+
+    function openStressTestModal() {
+        // Set default cash inflow to latest average flow
+        stressCashInflow.value = Math.max(0, Math.round(latestExpenseData.avg_flow_cny || 0));
+        stressYearsInput.value = 3;
+        stressDropRange.value = 50;
+        stressDropVal.textContent = "50%";
+        stressMaintainDca.checked = true;
+        
+        runStressSimulation();
+        stressTestModal.classList.add("show");
+    }
+
+    function closeStressTestModal() {
+        stressTestModal.classList.remove("show");
+    }
+
+    function runStressSimulation() {
+        const years = parseInt(stressYearsInput.value) || 3;
+        const dropRate = (parseFloat(stressDropRange.value) || 50) / 100;
+        const maintainDca = stressMaintainDca.checked;
+        const monthlyInflow = parseFloat(stressCashInflow.value) || 0;
+        
+        const monthsCount = years * 12;
+        const usdRate = latestUsdRate || 6.8;
+        
+        // 1. Initial values
+        const initialCnyCash = Number(latestExpenseData.cny_balance || 0);
+        const initialUsdCash = Number(latestExpenseData.usd_balance || 0);
+        
+        const nonCashAssets = latestAssets.filter(asset => !isCashAsset(asset));
+        const initialPortfolioValue = nonCashAssets.reduce((sum, asset) => sum + asset.value_cny, 0);
+        
+        let simCnyCash = initialCnyCash;
+        let simUsdCash = initialUsdCash;
+        let simPortfolioValue = initialPortfolioValue;
+        
+        let cnyDepletedMonth = -1;
+        let usdDepletedMonth = -1;
+        let totalDepletedMonth = -1;
+        
+        const labels = ["初始"];
+        const cashHistory = [initialCnyCash + initialUsdCash * usdRate];
+        const portfolioHistory = [initialPortfolioValue];
+        const totalHistory = [initialCnyCash + initialUsdCash * usdRate + initialPortfolioValue];
+        
+        const monthlyMultiplier = Math.pow(1 - dropRate, 1 / 12);
+        
+        for (let m = 1; m <= monthsCount; m++) {
+            // Apply market drop
+            simPortfolioValue = simPortfolioValue * monthlyMultiplier;
+            
+            // Add monthly inflow
+            simCnyCash += monthlyInflow;
+            
+            // Perform DCA
+            if (maintainDca && latestExpenseData.dca_records) {
+                for (const dca of latestExpenseData.dca_records) {
+                    const dcaCny = dca.monthly_amount_cny;
+                    const symbol = (dca.symbol || "").trim().toUpperCase();
+                    
+                    if (symbol === "USD") {
+                        const dcaUsd = dcaCny / usdRate;
+                        if (simUsdCash >= dcaUsd) {
+                            simUsdCash -= dcaUsd;
+                            simPortfolioValue += dcaCny;
+                        } else {
+                            simPortfolioValue += simUsdCash * usdRate;
+                            simUsdCash = 0;
+                            if (usdDepletedMonth === -1) {
+                                usdDepletedMonth = m;
+                            }
+                        }
+                    } else {
+                        if (simCnyCash >= dcaCny) {
+                            simCnyCash -= dcaCny;
+                            simPortfolioValue += dcaCny;
+                        } else {
+                            simPortfolioValue += simCnyCash;
+                            simCnyCash = 0;
+                            if (cnyDepletedMonth === -1) {
+                                cnyDepletedMonth = m;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Check overall depletion
+            const currentTotalCash = simCnyCash + simUsdCash * usdRate;
+            if (currentTotalCash <= 0 && totalDepletedMonth === -1) {
+                totalDepletedMonth = m;
+            }
+            
+            labels.push(`第 ${m} 月`);
+            cashHistory.push(currentTotalCash);
+            portfolioHistory.push(simPortfolioValue);
+            totalHistory.push(currentTotalCash + simPortfolioValue);
+        }
+        
+        const finalCnyCash = simCnyCash;
+        const finalUsdCash = simUsdCash;
+        const finalPortfolioValue = simPortfolioValue;
+        
+        const initialTotalCash = initialCnyCash + initialUsdCash * usdRate;
+        const initialTotal = initialTotalCash + initialPortfolioValue;
+        const finalTotal = (finalCnyCash + finalUsdCash * usdRate) + finalPortfolioValue;
+        
+        const totalChange = finalTotal - initialTotal;
+        const drawdownPct = initialTotal > 0 ? (totalChange / initialTotal) * 100 : 0;
+        
+        // 2. Render UI Stats
+        let liqText = "安全";
+        let liqSub = "现金储备充足";
+        let liqClass = "text-green";
+        
+        if (totalDepletedMonth !== -1) {
+            liqText = "枯竭";
+            liqSub = `整体资金在第 ${totalDepletedMonth} 个月耗尽`;
+            liqClass = "text-red";
+        } else if (cnyDepletedMonth !== -1 && usdDepletedMonth !== -1) {
+            liqText = "警告";
+            liqSub = `CNY第 ${cnyDepletedMonth} 月，USD第 ${usdDepletedMonth} 月耗尽`;
+            liqClass = "text-orange";
+        } else if (cnyDepletedMonth !== -1) {
+            liqText = "警告";
+            liqSub = `CNY现金在第 ${cnyDepletedMonth} 个月耗尽`;
+            liqClass = "text-orange";
+        } else if (usdDepletedMonth !== -1) {
+            liqText = "警告";
+            liqSub = `USD现金在第 ${usdDepletedMonth} 个月耗尽`;
+            liqClass = "text-orange";
+        }
+        
+        stressLiquidityResult.textContent = liqText;
+        stressLiquidityResult.className = `stress-card-value ${liqClass}`;
+        stressLiquiditySub.textContent = liqSub;
+        
+        const isLoss = totalChange < 0;
+        stressDrawdownResult.textContent = `${isLoss ? "" : "+"}${drawdownPct.toFixed(2)}%`;
+        stressDrawdownResult.className = `stress-card-value ${isLoss ? "text-red" : "text-green"}`;
+        stressDrawdownSub.textContent = `${isLoss ? "-" : "+"}¥${Math.abs(totalChange).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        
+        stressFinalAssetsResult.textContent = `¥${finalTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        stressFinalAssetsSub.textContent = `初始 ¥${initialTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        
+        const dcaTotalAmount = latestExpenseData.dca_records ? latestExpenseData.dca_records.reduce((sum, d) => sum + d.monthly_amount_cny, 0) : 0;
+        const totalInvested = maintainDca ? (dcaTotalAmount * monthsCount) : 0;
+        
+        stressDetailsLog.innerHTML = `
+            <strong>压力测试细节 log:</strong><br>
+            • 初始投资组合: CNY ${initialPortfolioValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 初始现金: CNY ${initialTotalCash.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
+            • 模拟三年后投资组合: CNY ${finalPortfolioValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 最终现金: CNY ${(finalCnyCash + finalUsdCash * usdRate).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
+            • 期间月度收入注入总额: CNY ${(monthlyInflow * monthsCount).toLocaleString("zh-CN", { maximumFractionDigits: 0 })} | 期间计划定投流出总额: CNY ${totalInvested.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}<br>
+            • <small>说明: 测试模拟了投资组合中非现金资产连续遭遇下跌的情况，现金仅受每月定投支出和现金收入流入影响。</small>
+        `;
+        
+        // 3. Render / Update Chart
+        const ctx = document.getElementById("stressChart").getContext("2d");
+        
+        if (stressChartInstance) {
+            stressChartInstance.destroy();
+        }
+        
+        stressChartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "总资产",
+                        data: totalHistory,
+                        borderColor: "#0f766e",
+                        backgroundColor: "rgba(15, 118, 110, 0.05)",
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    },
+                    {
+                        label: "投资组合",
+                        data: portfolioHistory,
+                        borderColor: "#3498db",
+                        backgroundColor: "transparent",
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.1
+                    },
+                    {
+                        label: "现金储备",
+                        data: cashHistory,
+                        borderColor: "#e67e22",
+                        backgroundColor: "transparent",
+                        borderWidth: 2,
+                        borderDash: [2, 2],
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "top",
+                        labels: {
+                            boxWidth: 20,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        mode: "index",
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += '¥' + Math.round(context.parsed.y).toLocaleString("zh-CN");
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 10
+                            },
+                            maxTicksLimit: 12
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                size: 10
+                            },
+                            callback: function(value) {
+                                return '¥' + (value >= 10000 ? (value / 10000).toFixed(0) + '万' : value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Bind Stress Test events
+    stressTestBtn.addEventListener("click", openStressTestModal);
+    closeStressModalBtn.addEventListener("click", closeStressTestModal);
+    stressTestModal.addEventListener("click", (event) => {
+        if (event.target === stressTestModal) {
+            closeStressTestModal();
+        }
+    });
+
+    stressYearsInput.addEventListener("input", runStressSimulation);
+    stressDropRange.addEventListener("input", (e) => {
+        stressDropVal.textContent = `${e.target.value}%`;
+        runStressSimulation();
+    });
+    stressMaintainDca.addEventListener("change", runStressSimulation);
+    stressCashInflow.addEventListener("input", runStressSimulation);
+
+    // Initial state
+    stressTestBtn.innerHTML = icons.stress;
     setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
     renderTotalAmount();
     copyButton.addEventListener("click", copyTotalAmount);
