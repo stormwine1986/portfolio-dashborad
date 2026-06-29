@@ -379,6 +379,43 @@
             letter-spacing: 0.08em;
         }
 
+        .total-assets-panel {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 20px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #eef2f7;
+            background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+            width: 100%;
+        }
+
+        .total-assets-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .total-assets-panel:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        }
+
+        .total-assets-panel:hover::before {
+            opacity: 1;
+        }
+
         .third-column-container {
             display: flex;
             flex-direction: column;
@@ -672,7 +709,7 @@
                 flex-direction: row;
             }
 
-            .row-panels-container, .expense-panel {
+            .row-panels-container, .expense-panel, .total-assets-panel {
                 flex: 1;
                 align-self: stretch;
             }
@@ -951,15 +988,6 @@
 </head>
 <body>
 <div class="dashboard-card">
-    <div class="header">
-        <div class="total-label">&#x603B;&#x8D44;&#x4EA7; (CNY &#x8BA1;&#x4EF7;)</div>
-        <div class="total-amount">
-            <span id="totalAmount">CNY 0.00</span>
-            <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
-            <button type="button" class="icon-button" id="stressTestBtn" aria-label="压力测试" title="压力测试" disabled></button>
-        </div>
-    </div>
-
     <div class="charts-grid">
         <section class="chart-panel">
             <h2 class="chart-title">&#x6309;&#x89D2;&#x8272;&#x5206;&#x5E03;</h2>
@@ -978,6 +1006,14 @@
         </section>
 
         <div class="third-column-container">
+            <section class="chart-panel total-assets-panel" id="totalAssetsPanel">
+                <div class="total-label">&#x603B;&#x8D44;&#x4EA7; (CNY &#x8BA1;&#x4EF7;)</div>
+                <div class="total-amount">
+                    <span id="totalAmount">CNY 0.00</span>
+                    <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
+                    <button type="button" class="icon-button" id="stressTestBtn" aria-label="压力测试" title="压力测试" disabled></button>
+                </div>
+            </section>
             <section class="chart-panel expense-panel" id="expensePanel">
                 <!-- Filled dynamically by JS -->
             </section>
