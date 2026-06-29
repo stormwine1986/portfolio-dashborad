@@ -1166,7 +1166,6 @@
                                 <th>年化收益率</th>
                                 <th>持仓市值 (折合 CNY)</th>
                                 <th class="is-number">折合月均流入 (CNY)</th>
-                                <th>备注</th>
                             </tr>
                         </thead>
                         <tbody id="fixedIncomeModalTableBody">
@@ -1467,7 +1466,7 @@
         if (!fixedIncomeRecords.length) {
             fixedIncomeModalTableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无生息资产数据</td>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">暂无生息资产数据</td>
                 </tr>
             `;
         } else {
@@ -1486,14 +1485,12 @@
                         <td style="color: #0f766e; font-weight: 600;">${escapeHtml(item.interest_rate)}%</td>
                         <td>${valueDisplay}</td>
                         <td class="is-number" style="color: #0f766e; font-weight: 600;">${monthlyDisplay}</td>
-                        <td><small style="color: var(--text-muted);">${escapeHtml(item.remarks)}</small></td>
                     </tr>
                 `;
             }).join("") + `
                 <tr class="total-row">
                     <td colspan="3">合计月均固收利息流入</td>
                     <td class="is-number" style="color: #0f766e;">${amountsVisible ? "+¥" + Number(latestExpenseData.total_interest_cny || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "••••••"}</td>
-                    <td></td>
                 </tr>
             `;
         }
