@@ -37,6 +37,12 @@ interface FlowRow {
   amount: number;
 }
 
+interface BaselineRow {
+  baseline: string;
+  total: number;
+  created_at: string;
+}
+
 const jsonHeaders = {
   "Content-Type": "application/json",
 };
@@ -110,7 +116,7 @@ async function fetchUsdToCnyRate(): Promise<number> {
 
 async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   try {
-    const [assetRows, qdiiRows, tagRows, dcaRows, flowRows] = await Promise.all([
+    const [assetRows, qdiiRows, tagRows, dcaRows, flowRows, baselineRows] = await Promise.all([
       env.DB.prepare(
         "SELECT * FROM assets WHERE shares > 0"
       ).all<AssetRow>(),
@@ -126,6 +132,9 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
       env.DB.prepare(
         "SELECT period, amount FROM flow ORDER BY period DESC LIMIT 12"
       ).all<FlowRow>(),
+      env.DB.prepare(
+        "SELECT baseline, total, created_at FROM baseline ORDER BY created_at DESC LIMIT 12"
+      ).all<BaselineRow>().catch(() => ({ results: [] as BaselineRow[] })),
     ]);
 
     const results = assetRows.results ?? [];
@@ -346,6 +355,7 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
         stats_by_symbol,
         assets: assetsList,
         qdii: qdiiRows.results ?? [],
+        baseline: baselineRows.results ?? [],
         expense: {
           total_cny: Number(netMonthlyLiquidity.toFixed(2)),
           avg_flow_cny: Number(avgFlowCny.toFixed(2)),

@@ -1011,6 +1011,7 @@
                 <div class="total-amount">
                     <span id="totalAmount">CNY 0.00</span>
                     <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
+                    <button type="button" class="icon-button" id="baselineBtn" aria-label="资产基线" title="资产基线" disabled></button>
                     <button type="button" class="icon-button" id="stressTestBtn" aria-label="压力测试" title="压力测试" disabled></button>
                 </div>
             </section>
@@ -1290,6 +1291,67 @@
     </div>
 </div>
 
+<!-- Modal for Asset Baseline Chart -->
+<div id="baselineModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 860px; width: 95%;">
+        <div class="modal-header">
+            <h3 class="modal-title">资产基线展示</h3>
+            <button type="button" id="closeBaselineModalBtn" class="close-button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+            <!-- Header Summary Stat Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+                <div style="background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 14px 16px;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">最新基线金额</div>
+                    <div id="baselineLatestVal" style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin-top: 4px;">-</div>
+                    <div id="baselineLatestDate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">-</div>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 14px 16px;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">当前总资产</div>
+                    <div id="baselineCurrentTotalVal" style="font-size: 1.35rem; font-weight: 700; color: var(--accent); margin-top: 4px;">-</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">实时折合 CNY</div>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 14px 16px;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">较最新基线偏离</div>
+                    <div id="baselineDiffVal" style="font-size: 1.35rem; font-weight: 700; margin-top: 4px;">-</div>
+                    <div id="baselineDiffSub" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">差额 / 幅度</div>
+                </div>
+            </div>
+
+            <!-- Line Chart Container -->
+            <div style="border: 1px solid #eef2f7; border-radius: 12px; padding: 16px; background: #ffffff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-weight: 600; font-size: 0.92rem; color: var(--text-main);">最近 12 笔基线折线图</span>
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">按时间先后排序</span>
+                </div>
+                <div style="position: relative; height: 320px; width: 100%;">
+                    <canvas id="baselineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Detail Table -->
+            <div>
+                <h4 style="margin: 0 0 10px; color: var(--text-main); font-size: 0.95rem;">基线数据明细 (最近 12 笔)</h4>
+                <div class="modal-table-container">
+                    <table class="stat-table">
+                        <thead>
+                            <tr>
+                                <th>基线标识</th>
+                                <th class="is-number">基线金额 (CNY)</th>
+                                <th>记录时间</th>
+                                <th class="is-number">环比变动</th>
+                            </tr>
+                        </thead>
+                        <tbody id="baselineModalTableBody">
+                            <!-- Filled dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
@@ -1309,6 +1371,12 @@
         stress: `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+        `,
+        baseline: `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
             </svg>
         `
     };
@@ -1401,6 +1469,20 @@
     const stressDetailsLog = document.getElementById("stressDetailsLog");
 
     let stressChartInstance = null;
+
+    // Asset Baseline DOM Elements
+    const baselineBtn = document.getElementById("baselineBtn");
+    const baselineModal = document.getElementById("baselineModal");
+    const closeBaselineModalBtn = document.getElementById("closeBaselineModalBtn");
+    const baselineLatestVal = document.getElementById("baselineLatestVal");
+    const baselineLatestDate = document.getElementById("baselineLatestDate");
+    const baselineCurrentTotalVal = document.getElementById("baselineCurrentTotalVal");
+    const baselineDiffVal = document.getElementById("baselineDiffVal");
+    const baselineDiffSub = document.getElementById("baselineDiffSub");
+    const baselineModalTableBody = document.getElementById("baselineModalTableBody");
+
+    let latestBaselineRows = [];
+    let baselineChartInstance = null;
 
 
 
@@ -2075,6 +2157,9 @@
             if (stressTestModal.classList.contains("show")) {
                 closeStressTestModal();
             }
+            if (baselineModal.classList.contains("show")) {
+                closeBaselineModal();
+            }
         }
     });
 
@@ -2356,9 +2441,11 @@
                 total_interest_cny: 0,
                 fixed_income_records: []
             };
+            latestBaselineRows = data.baseline || [];
             renderTotalAmount();
             copyButton.disabled = false;
             stressTestBtn.disabled = false;
+            baselineBtn.disabled = false;
 
             renderPieChart("rolePieChart", latestRoleStats);
             renderPieChart("symbolPieChart", latestSymbolStats);
@@ -2373,6 +2460,7 @@
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
             copyButton.disabled = true;
             stressTestBtn.disabled = true;
+            baselineBtn.disabled = true;
         }
     }
 
@@ -2704,7 +2792,192 @@
     stressMaintainDca.addEventListener("change", runStressSimulation);
     stressCashInflow.addEventListener("input", runStressSimulation);
 
+    // Asset Baseline Functions
+    function openBaselineModal() {
+        const records = latestBaselineRows || [];
+        const currentTotal = Number(totalAmountRawValue) || 0;
+
+        if (records.length > 0) {
+            const latest = records[0];
+            const latestVal = Number(latest.total) || 0;
+            baselineLatestVal.textContent = "¥" + latestVal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const dateStr = latest.created_at ? latest.created_at.split(" ")[0] : "";
+            baselineLatestDate.textContent = (latest.baseline ? escapeHtml(latest.baseline) + " " : "") + (dateStr ? `(${escapeHtml(dateStr)})` : "");
+
+            baselineCurrentTotalVal.textContent = "¥" + currentTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const diff = currentTotal - latestVal;
+            const diffPct = latestVal > 0 ? ((diff / latestVal) * 100).toFixed(2) : "0.00";
+            if (diff >= 0) {
+                baselineDiffVal.innerHTML = `<span style="color: #10b981;">+¥${diff.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                baselineDiffSub.innerHTML = `<span style="color: #10b981;">+${diffPct}%</span> 较最新基线`;
+            } else {
+                baselineDiffVal.innerHTML = `<span style="color: #ef4444;">-¥${Math.abs(diff).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                baselineDiffSub.innerHTML = `<span style="color: #ef4444;">${diffPct}%</span> 较最新基线`;
+            }
+        } else {
+            baselineLatestVal.textContent = "暂无数据";
+            baselineLatestDate.textContent = "-";
+            baselineCurrentTotalVal.textContent = "¥" + currentTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            baselineDiffVal.textContent = "-";
+            baselineDiffSub.textContent = "-";
+        }
+
+        renderBaselineChart(records);
+        renderBaselineTable(records);
+        baselineModal.classList.add("show");
+    }
+
+    function closeBaselineModal() {
+        baselineModal.classList.remove("show");
+    }
+
+    function renderBaselineChart(records) {
+        if (baselineChartInstance) {
+            baselineChartInstance.destroy();
+            baselineChartInstance = null;
+        }
+
+        if (!records || records.length === 0) {
+            return;
+        }
+
+        // Sort chronologically (oldest to newest, left to right on X axis)
+        const sorted = [...records].reverse();
+        const labels = sorted.map(r => {
+            if (r.baseline) return r.baseline;
+            if (r.created_at) return r.created_at.split(" ")[0];
+            return "";
+        });
+        const values = sorted.map(r => Number(r.total) || 0);
+
+        const ctx = document.getElementById("baselineChart").getContext("2d");
+        baselineChartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "资产基线 (CNY)",
+                        data: values,
+                        borderColor: "#0f766e",
+                        backgroundColor: "rgba(15, 118, 110, 0.08)",
+                        borderWidth: 2.5,
+                        pointBackgroundColor: "#0f766e",
+                        pointBorderColor: "#ffffff",
+                        pointBorderWidth: 2,
+                        pointRadius: 4.5,
+                        pointHoverRadius: 7,
+                        tension: 0.25,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: "index",
+                        intersect: false,
+                        callbacks: {
+                            title: function(items) {
+                                if (!items.length) return "";
+                                const idx = items[0].dataIndex;
+                                const item = sorted[idx];
+                                return (item.baseline || "") + (item.created_at ? ` (${item.created_at})` : "");
+                            },
+                            label: function(context) {
+                                const val = context.parsed.y;
+                                return " 基线金额: ¥" + (val !== null ? Number(val).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00");
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: "#f1f5f9"
+                        },
+                        ticks: {
+                            font: { size: 11 },
+                            color: "#64748b"
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: "#f1f5f9"
+                        },
+                        ticks: {
+                            font: { size: 11 },
+                            color: "#64748b",
+                            callback: function(val) {
+                                return "¥" + (val >= 10000 ? (val / 10000).toFixed(0) + "万" : val.toLocaleString("zh-CN"));
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderBaselineTable(records) {
+        if (!records || records.length === 0) {
+            baselineModalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无基线数据记录</td>
+                </tr>
+            `;
+            return;
+        }
+
+        // records is ordered DESC (newest first)
+        let html = "";
+        for (let i = 0; i < records.length; i++) {
+            const cur = records[i];
+            const curVal = Number(cur.total) || 0;
+            const next = i + 1 < records.length ? records[i + 1] : null;
+
+            let changeHtml = '<span style="color: var(--text-muted);">-</span>';
+            if (next) {
+                const nextVal = Number(next.total) || 0;
+                const diff = curVal - nextVal;
+                const diffPct = nextVal > 0 ? ((diff / nextVal) * 100).toFixed(2) : "0.00";
+                if (diff > 0) {
+                    changeHtml = `<span style="color: #10b981; font-weight: 600;">+¥${diff.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (+${diffPct}%)</span>`;
+                } else if (diff < 0) {
+                    changeHtml = `<span style="color: #ef4444; font-weight: 600;">-¥${Math.abs(diff).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${diffPct}%)</span>`;
+                } else {
+                    changeHtml = '<span style="color: var(--text-muted);">0.00 (0.00%)</span>';
+                }
+            }
+
+            html += `
+                <tr>
+                    <td><strong>${escapeHtml(cur.baseline || "-")}</strong></td>
+                    <td class="is-number" style="font-weight: 600;">¥${curVal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="color: var(--text-muted); font-size: 0.88rem;">${escapeHtml(cur.created_at || "-")}</td>
+                    <td class="is-number">${changeHtml}</td>
+                </tr>
+            `;
+        }
+        baselineModalTableBody.innerHTML = html;
+    }
+
+    // Bind Asset Baseline events
+    baselineBtn.addEventListener("click", openBaselineModal);
+    closeBaselineModalBtn.addEventListener("click", closeBaselineModal);
+    baselineModal.addEventListener("click", (event) => {
+        if (event.target === baselineModal) {
+            closeBaselineModal();
+        }
+    });
+
     // Initial state
+    baselineBtn.innerHTML = icons.baseline;
     stressTestBtn.innerHTML = icons.stress;
     setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
     renderTotalAmount();
