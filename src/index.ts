@@ -385,12 +385,89 @@ async function handleAssetStats(request: Request, env: Env): Promise<Response> {
   }
 }
 
+async function handleSaveBaseline(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = (await request.json().catch(() => ({}))) as { total?: number };
+    const rawTotal = body.total;
+
+    if (typeof rawTotal !== "number" || !Number.isFinite(rawTotal) || rawTotal < 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "总资产金额不合法" }),
+        { status: 400, headers: jsonHeaders }
+      );
+    }
+
+    const total = Number(rawTotal.toFixed(2));
+
+    // 计算北京时间 (UTC+8) 当前日期
+    const now = new Date();
+    const beijing = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60000);
+    const year = beijing.getFullYear();
+    const month = String(beijing.getMonth() + 1).padStart(2, "0");
+    const day = String(beijing.getDate()).padStart(2, "0");
+
+    const baselineId = `${year}${month}${day}`;
+    const createdAt = `${year}-${month}-${day} 00:00:00`;
+
+    // 查询是否已存在当日基线
+    const existing = await env.DB.prepare(
+      "SELECT baseline FROM baseline WHERE baseline = ?"
+    ).bind(baselineId).first<{ baseline: string }>();
+
+    if (existing) {
+      // 存在则更新当日基线
+      await env.DB.prepare(
+        "UPDATE baseline SET total = ?, created_at = ? WHERE baseline = ?"
+      ).bind(total, createdAt, baselineId).run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: "updated",
+          baseline: baselineId,
+          total,
+          created_at: createdAt,
+          message: `今日基线 (${baselineId}) 更新成功`
+        }),
+        { headers: jsonHeaders }
+      );
+    } else {
+      // 不存在则创建当日基线
+      await env.DB.prepare(
+        "INSERT INTO baseline (baseline, total, created_at) VALUES (?, ?, ?)"
+      ).bind(baselineId, total, createdAt).run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: "created",
+          baseline: baselineId,
+          total,
+          created_at: createdAt,
+          message: `今日基线 (${baselineId}) 创建成功`
+        }),
+        { headers: jsonHeaders }
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status: 500,
+      headers: jsonHeaders,
+    });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/assets-stats") {
       return handleAssetStats(request, env);
+    }
+
+    if (url.pathname === "/api/baseline" && request.method === "POST") {
+      return handleSaveBaseline(request, env);
     }
 
     if (env.ASSETS) {

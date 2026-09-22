@@ -1307,9 +1307,21 @@
                     <div id="baselineLatestDate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">-</div>
                 </div>
                 <div style="background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 14px 16px;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">当前总资产</div>
-                    <div id="baselineCurrentTotalVal" style="font-size: 1.35rem; font-weight: 700; color: var(--accent); margin-top: 4px;">-</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">实时折合 CNY</div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">当前总资产</div>
+                            <div id="baselineCurrentTotalVal" style="font-size: 1.35rem; font-weight: 700; color: var(--accent); margin-top: 4px;">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">实时折合 CNY</div>
+                        </div>
+                        <button type="button" id="createBaselineBtn" class="action-btn" style="padding: 5px 10px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-weight: 500; transition: all 0.2s; white-space: nowrap; margin-top: 2px;" title="以当前总资产创建或更新今日基线（每日一笔）">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <span id="createBaselineBtnText">创建基线</span>
+                        </button>
+                    </div>
                 </div>
                 <div style="background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 14px 16px;">
                     <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">较最新基线偏离</div>
@@ -1480,6 +1492,8 @@
     const baselineDiffVal = document.getElementById("baselineDiffVal");
     const baselineDiffSub = document.getElementById("baselineDiffSub");
     const baselineModalTableBody = document.getElementById("baselineModalTableBody");
+    const createBaselineBtn = document.getElementById("createBaselineBtn");
+    const createBaselineBtnText = document.getElementById("createBaselineBtnText");
 
     let latestBaselineRows = [];
     let baselineChartInstance = null;
@@ -2793,9 +2807,29 @@
     stressCashInflow.addEventListener("input", runStressSimulation);
 
     // Asset Baseline Functions
+    function getBeijingTodayId() {
+        const now = new Date();
+        const beijing = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60000);
+        const y = beijing.getFullYear();
+        const m = String(beijing.getMonth() + 1).padStart(2, "0");
+        const d = String(beijing.getDate()).padStart(2, "0");
+        return `${y}${m}${d}`;
+    }
+
     function openBaselineModal() {
         const records = latestBaselineRows || [];
         const currentTotal = Number(totalAmountRawValue) || 0;
+        const todayId = getBeijingTodayId();
+        const hasTodayRecord = records.some(r => r.baseline === todayId);
+
+        if (createBaselineBtnText) {
+            createBaselineBtnText.textContent = hasTodayRecord ? "更新今日基线" : "创建基线";
+        }
+        if (createBaselineBtn) {
+            createBaselineBtn.title = hasTodayRecord
+                ? `已存在今日基线 (${todayId})，点击将以当前总资产覆盖更新`
+                : `以当前总资产创建今日基线 (${todayId})`;
+        }
 
         if (records.length > 0) {
             const latest = records[0];
@@ -2967,9 +3001,59 @@
         baselineModalTableBody.innerHTML = html;
     }
 
+    async function handleCreateBaselineClick() {
+        const todayId = getBeijingTodayId();
+        const isUpdate = latestBaselineRows.some(r => r.baseline === todayId);
+        const currentTotal = Number(totalAmountRawValue) || 0;
+
+        const confirmMsg = isUpdate
+            ? `今日基线 (${todayId}) 已存在。\n确定要将今日基线金额覆盖更新为当前总资产 (¥${currentTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) 吗？`
+            : `确定要以当前总资产 (¥${currentTotal.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) 创建今日基线 (${todayId}) 吗？`;
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        createBaselineBtn.disabled = true;
+        const originalText = createBaselineBtnText.textContent;
+        createBaselineBtnText.textContent = "保存中...";
+
+        try {
+            const res = await fetch("/api/baseline", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ total: currentTotal })
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || "保存基线失败");
+            }
+
+            createBaselineBtnText.textContent = isUpdate ? "已更新" : "已创建";
+
+            // 重新拉取看板数据并刷新弹窗视图
+            await fetchAndRenderChart();
+            openBaselineModal();
+
+            setTimeout(() => {
+                createBaselineBtn.disabled = false;
+                createBaselineBtnText.textContent = "更新今日基线";
+            }, 1500);
+        } catch (err) {
+            console.error("Failed to save baseline:", err);
+            alert("保存基线失败: " + (err.message || err));
+            createBaselineBtn.disabled = false;
+            createBaselineBtnText.textContent = originalText;
+        }
+    }
+
     // Bind Asset Baseline events
     baselineBtn.addEventListener("click", openBaselineModal);
     closeBaselineModalBtn.addEventListener("click", closeBaselineModal);
+    createBaselineBtn.addEventListener("click", handleCreateBaselineClick);
     baselineModal.addEventListener("click", (event) => {
         if (event.target === baselineModal) {
             closeBaselineModal();
