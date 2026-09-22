@@ -58,8 +58,15 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            text-align: center;
+        }
+
+        .total-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             gap: 12px;
-            flex-wrap: wrap;
+            margin-top: 12px;
         }
 
         .icon-button {
@@ -1010,7 +1017,8 @@
                 <div class="total-label">&#x603B;&#x8D44;&#x4EA7; (CNY &#x8BA1;&#x4EF7;)</div>
                 <div class="total-amount">
                     <span id="totalAmount">CNY 0.00</span>
-                    <button type="button" class="icon-button" id="copyTotalAmount" aria-label="复制金额" title="复制金额" disabled></button>
+                </div>
+                <div class="total-actions">
                     <button type="button" class="icon-button" id="baselineBtn" aria-label="资产基线" title="资产基线" disabled></button>
                     <button type="button" class="icon-button" id="stressTestBtn" aria-label="压力测试" title="压力测试" disabled></button>
                 </div>
@@ -1367,19 +1375,7 @@
 <script>
     const API_URL = "/api/assets-stats";
     const totalAmountElement = document.getElementById("totalAmount");
-    const copyButton = document.getElementById("copyTotalAmount");
     const icons = {
-        copy: `
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="9" y="9" width="11" height="11" rx="2" stroke-width="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round"></path>
-            </svg>
-        `,
-        check: `
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M20 6 9 17l-5-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-        `,
         stress: `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
@@ -1497,19 +1493,6 @@
 
     let latestBaselineRows = [];
     let baselineChartInstance = null;
-
-
-
-    function setCopyButtonState(label, copied) {
-        copyButton.innerHTML = copied ? icons.check : icons.copy;
-        copyButton.setAttribute("aria-label", label);
-        copyButton.setAttribute("title", label);
-        copyButton.classList.toggle("copied", Boolean(copied));
-    }
-
-
-
-
 
     function formatCny(value) {
         return "CNY " + Number(value).toLocaleString("zh-CN", {
@@ -2177,17 +2160,6 @@
         }
     });
 
-    async function copyTotalAmount() {
-        try {
-            await navigator.clipboard.writeText(totalAmountRawValue);
-            setCopyButtonState("\u5df2\u590d\u5236", true);
-        } catch (error) {
-            console.error("Failed to copy total assets", error);
-            setCopyButtonState("\u590d\u5236\u5931\u8d25", false);
-        }
-
-        window.setTimeout(() => setCopyButtonState("\u590d\u5236\u91d1\u989d", false), 1500);
-    }
 
     function renderAmount(value) {
         const formatted = formatCny(value);
@@ -2457,7 +2429,6 @@
             };
             latestBaselineRows = data.baseline || [];
             renderTotalAmount();
-            copyButton.disabled = false;
             stressTestBtn.disabled = false;
             baselineBtn.disabled = false;
 
@@ -2472,7 +2443,6 @@
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             totalAmountElement.innerText = "\u6570\u636e\u52a0\u8f7d\u5931\u8d25";
-            copyButton.disabled = true;
             stressTestBtn.disabled = true;
             baselineBtn.disabled = true;
         }
@@ -3063,9 +3033,7 @@
     // Initial state
     baselineBtn.innerHTML = icons.baseline;
     stressTestBtn.innerHTML = icons.stress;
-    setCopyButtonState("\u590d\u5236\u91d1\u989d", false);
     renderTotalAmount();
-    copyButton.addEventListener("click", copyTotalAmount);
     window.addEventListener("load", fetchAndRenderChart);
 </script>
 </body>
